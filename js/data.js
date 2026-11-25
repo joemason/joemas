@@ -1,359 +1,322 @@
 /*
  * Reference content for the illegal content risk assessment.
  *
- * Based on Ofcom's Risk Assessment Guidance and Risk Profiles, and the
- * Illegal Content Codes of Practice under the Online Safety Act 2023.
+ * Sources (checked 25 November 2026; see docs/content-review.md):
+ *  [RAG]  Ofcom, Risk Assessment Guidance and Risk Profiles, v2.0 (25 June 2026)
+ *  [ICU]  Ofcom, Illegal content Codes of Practice for user-to-user services
+ *         (amendments issued 12 October 2026, in force 2 November 2026)
+ *  [ICS]  Ofcom, Illegal content Codes of Practice for search services
+ *         (amendments issued 9 September 2026)
+ *  [RKR]  Ofcom, Record-Keeping and Review Guidance, v3.0 (25 June 2026)
+ *  Online Safety Act 2023, Schedules 5 to 7 (legislation.gov.uk, as amended)
  *
- * Content status (see docs/content-review.md):
- *  - Kinds of priority illegal harm: checked against OSA 2023 Schedules 5-7
- *    on legislation.gov.uk (as amended, retrieved 25 November 2026).
- *  - Risk factor links and measure rules: NOT yet checked against Ofcom's
- *    Risk Assessment Guidance and Risk Profiles v2.0 (June 2026) or the
- *    Illegal Content Codes of Practice (September 2026).
- * The mappings are a practical summary to guide users, not a copy of the
- * official documents. Check Ofcom's current publications before relying
- * on them.
+ * The descriptions are plain-English summaries. The lists of harms, risk
+ * factors, links between them, evidence inputs and measure conditions follow
+ * the documents above.
  */
 window.OSRA_DATA = (function () {
-  // ----- The 17 kinds of priority illegal harm (CSEA split into its three
-  // assessed parts, as Ofcom's guidance does), plus other illegal content.
+  const SOURCES = {
+    rag: "Ofcom Risk Assessment Guidance and Risk Profiles v2.0 (25 June 2026)",
+    icu: "Ofcom Illegal content Codes of Practice for user-to-user services (in force 2 November 2026)",
+    ics: "Ofcom Illegal content Codes of Practice for search services (amendments issued 9 September 2026)",
+    rkr: "Ofcom Record-Keeping and Review Guidance v3.0 (25 June 2026)",
+  };
+
+  // ----- The 18 kinds of priority illegal content [RAG Table 1], with CSEA
+  // split into the three parts that U2U services assess separately
+  // [RAG 3.4, 3.7], plus other illegal content.
+  //   codes: false  -> not a kind of illegal harm in the Codes' Table C, so it
+  //                    does not count towards "multi-risk" [ICU 5.6]
+  //   csea: true    -> one of the CSEA parts; together they count as one kind
   const harms = [
-    {
-      id: "terrorism",
-      name: "Terrorism",
-      summary:
-        "Content that encourages, glorifies or supports terrorism, recruits for or invites support for proscribed organisations, or shares material useful for terrorist acts.",
-    },
-    {
-      id: "grooming",
-      name: "Child sexual exploitation and abuse: grooming",
-      summary:
-        "Adults contacting, building relationships with or manipulating children for sexual purposes, including sexual communication with a child.",
-    },
-    {
-      id: "csam_image",
-      name: "Child sexual exploitation and abuse: image-based CSAM",
-      summary:
-        "Indecent or prohibited images and videos of children, including AI-generated and pseudo-images.",
-    },
-    {
-      id: "csam_url",
-      name: "Child sexual exploitation and abuse: CSAM URLs",
-      summary:
-        "Links (URLs) to websites or files that contain child sexual abuse material.",
-    },
-    {
-      id: "hate",
-      name: "Hate",
-      summary:
-        "Content stirring up hatred on grounds of race, religion or sexual orientation, and racially or religiously aggravated public order offences.",
-    },
-    {
-      id: "harassment",
-      name: "Harassment, stalking, threats and abuse",
-      summary:
-        "Harassment, stalking, threats to kill, threatening or abusive behaviour, and other abusive communications.",
-    },
-    {
-      id: "coercive",
-      name: "Controlling or coercive behaviour",
-      summary:
-        "Repeated or continuous controlling or coercive behaviour towards a partner or family member, carried out or facilitated online.",
-    },
-    {
-      id: "iia",
-      name: "Intimate image abuse",
-      summary:
-        "Sharing, or threatening to share, intimate images or videos without consent; creating or requesting fake (for example AI-generated) intimate images of adults; and sending unsolicited images of genitals (cyberflashing).",
-    },
-    {
-      id: "extreme_porn",
-      name: "Extreme pornography",
-      summary:
-        "Extreme pornographic images (for example acts that threaten life or cause serious injury, necrophilia or bestiality), and pornography showing strangulation or suffocation, sex between relatives, or sexual activity with a child under 16.",
-    },
-    {
-      id: "sexual_exploitation",
-      name: "Sexual exploitation of adults",
-      summary:
-        "Causing, inciting or controlling prostitution for gain, and paying for the sexual services of a person subjected to force.",
-    },
-    {
-      id: "trafficking",
-      name: "Human trafficking",
-      summary:
-        "Arranging or facilitating the travel of a person for exploitation, including recruiting victims, advertising and logistics.",
-    },
-    {
-      id: "immigration",
-      name: "Unlawful immigration",
-      summary:
-        "Assisting unlawful immigration, for example advertising small-boat crossings or fake documents.",
-    },
-    {
-      id: "fraud",
-      name: "Fraud and financial offences",
-      summary:
-        "Fraud by false representation, articles for use in fraud, investment scams, romance scams, and other financial services offences.",
-    },
-    {
-      id: "proceeds",
-      name: "Proceeds of crime",
-      summary:
-        "Money laundering and dealing in criminal property, including recruiting 'money mules'.",
-    },
-    {
-      id: "drugs",
-      name: "Drugs and psychoactive substances",
-      summary:
-        "Supplying, or offering to supply, controlled drugs and psychoactive substances.",
-    },
-    {
-      id: "weapons",
-      name: "Firearms, knives and other weapons",
-      summary:
-        "Selling or offering prohibited firearms, ammunition, knives and other offensive weapons, including 3D-printed weapons.",
-    },
-    {
-      id: "suicide",
-      name: "Encouraging or assisting suicide",
-      summary:
-        "Content that encourages or assists suicide or an attempt at suicide.",
-    },
-    {
-      // Priority offence since 8 January 2026 (OSA Sch. 7 para. 2A, added by
-      // S.I. 2025/1352). Risk factor links below copy those for suicide and are
-      // PROVISIONAL until checked against Ofcom's v2.0 Risk Profiles.
-      id: "self_harm",
-      name: "Encouraging or assisting serious self-harm",
-      summary:
-        "Content that encourages or assists someone to seriously harm themselves, for example by sharing methods or urging them to self-harm.",
-    },
-    {
-      id: "foreign_interference",
-      name: "Foreign interference",
-      summary:
-        "Disinformation and other conduct on behalf of a foreign power intended to interfere with UK political, legal or democratic processes.",
-    },
-    {
-      id: "animal_cruelty",
-      name: "Animal cruelty",
-      summary:
-        "Content that causes, encourages or assists unnecessary suffering of animals.",
-    },
-    {
-      id: "other",
-      name: "Other illegal content (non-priority offences)",
-      summary:
-        "Other relevant offences that are not priority offences, for example epilepsy trolling (sending flashing images), false communications and threatening communications. Assess any your service is aware of.",
-    },
+    { id: "terrorism", name: "Terrorism", summary: "Content that encourages, glorifies or supports terrorism, invites support for proscribed organisations, or shares material useful for terrorist acts." },
+    { id: "grooming", csea: true, name: "CSEA: grooming", summary: "Adults contacting, building relationships with or manipulating children for sexual purposes, including sexual communication with a child." },
+    { id: "csam_image", csea: true, name: "CSEA: child sexual abuse material (imagery)", summary: "Indecent or prohibited images and videos of children, including pseudo-photographs, drawings and AI-generated images." },
+    { id: "csam_url", csea: true, name: "CSEA: child sexual abuse material (URLs)", summary: "Links or text URLs to locations where child sexual abuse material is present, or to domains dedicated to it." },
+    { id: "hate", name: "Hate", summary: "Content stirring up hatred on grounds of race, religion or sexual orientation, and racially or religiously aggravated public order offences and harassment." },
+    { id: "harassment", name: "Harassment, stalking, threats and abuse", summary: "Harassment, stalking, threats to kill, and threatening or abusive behaviour." },
+    { id: "coercive", name: "Controlling or coercive behaviour", summary: "Repeated or continuous controlling or coercive behaviour towards a partner or family member, carried out or facilitated online." },
+    { id: "iia", name: "Intimate image abuse", summary: "Sharing, or threatening to share, intimate images or videos without consent, including fake (for example AI-generated) intimate images." },
+    { id: "extreme_porn", name: "Extreme pornography", summary: "Extreme pornographic images, including pornography showing strangulation or suffocation." },
+    { id: "sexual_exploitation", name: "Sexual exploitation of adults", summary: "Causing, inciting or controlling prostitution for gain, and paying for the sexual services of a person subjected to force." },
+    { id: "trafficking", name: "Human trafficking", summary: "Arranging or facilitating the travel of a person for exploitation, including recruiting victims and advertising." },
+    { id: "immigration", name: "Unlawful immigration", summary: "Assisting unlawful immigration, for example advertising illegal crossings or false documents." },
+    { id: "fraud", name: "Fraud and financial offences", summary: "Fraud by false representation, articles for use in fraud, investment and romance scams, and financial services offences." },
+    { id: "proceeds", name: "Proceeds of crime", summary: "Money laundering and dealing in criminal property, including recruiting 'money mules'." },
+    { id: "drugs", name: "Drugs and psychoactive substances", summary: "Supplying, or offering to supply, controlled drugs and psychoactive substances." },
+    { id: "weapons", name: "Firearms, knives and other weapons", summary: "Selling or offering prohibited firearms, ammunition, knives and other offensive weapons." },
+    { id: "suicide", name: "Encouraging or assisting suicide and serious self-harm", summary: "Content that encourages or assists suicide, attempted suicide or serious self-harm, for example by sharing methods." },
+    { id: "foreign_interference", name: "Foreign interference", summary: "Disinformation and other conduct on behalf of a foreign power intended to interfere with UK political, legal or democratic processes." },
+    { id: "animal_cruelty", name: "Animal cruelty", summary: "Content that causes, encourages or assists unnecessary suffering of animals." },
+    { id: "cyberflashing", codes: false, name: "Cyberflashing", summary: "Sending an unsolicited photograph or film of genitals to cause alarm, distress or humiliation, or for sexual gratification." },
+    { id: "other", codes: false, other: true, name: "Other illegal content (including non-priority offences)", summary: "Other kinds of illegal content you have evidence or reason to believe may occur on your service, for example false communications, threatening communications or epilepsy trolling. Assess any that are relevant." },
   ];
 
-  // ----- Risk factors. Each one, if present on the service, raises the
-  // risk of the harms listed in `raises`. "all" means every harm.
-  const ALL = "all";
+  // ----- U2U Risk Profile specific risk factors [RAG Figure 1 and Table 9].
+  // Ofcom's question numbers are kept as `ref`.
   const factorGroups = [
     {
-      id: "type",
-      name: "Service type",
-      hint: "Tick every type that describes your service, even partly.",
-      services: ["u2u"],
+      id: "type", name: "Service type", hint: "Tick every type that describes your service.", services: ["u2u"],
       factors: [
-        { id: "t_social", name: "Social media service", raises: ["terrorism", "grooming", "csam_image", "hate", "harassment", "coercive", "iia", "fraud", "drugs", "suicide", "self_harm", "foreign_interference", "animal_cruelty"] },
-        { id: "t_messaging", name: "Messaging service", raises: ["terrorism", "grooming", "csam_image", "csam_url", "harassment", "coercive", "iia", "fraud", "drugs", "trafficking"] },
-        { id: "t_gaming", name: "Gaming service", raises: ["terrorism", "grooming", "hate", "harassment", "fraud"] },
-        { id: "t_adult", name: "Adult service (pornography or sexual content)", raises: ["csam_image", "csam_url", "iia", "extreme_porn", "sexual_exploitation", "trafficking"] },
-        { id: "t_forum", name: "Discussion forum or chat room", raises: ["terrorism", "csam_image", "csam_url", "hate", "harassment", "drugs", "suicide", "self_harm", "foreign_interference"] },
-        { id: "t_dating", name: "Dating service", raises: ["harassment", "iia", "fraud", "sexual_exploitation", "trafficking"] },
-        { id: "t_marketplace", name: "Marketplace or listings service", raises: ["fraud", "proceeds", "drugs", "weapons", "trafficking", "immigration", "sexual_exploitation", "animal_cruelty"] },
-        { id: "t_filesharing", name: "File-storage or file-sharing service", raises: ["terrorism", "csam_image", "csam_url", "iia", "extreme_porn"] },
-        { id: "t_video", name: "Video-sharing service", raises: ["terrorism", "csam_image", "hate", "suicide", "self_harm", "extreme_porn", "animal_cruelty", "iia"] },
+        { id: "1a", ref: "1a", name: "Social media service", hint: "Connects users and lets them build communities around common interests or connections." },
+        { id: "1b", ref: "1b", name: "Messaging service", hint: "Centred on sending messages that only a specific recipient or group can read." },
+        { id: "1c", ref: "1c", name: "Gaming service", hint: "Users interact in partially or fully simulated virtual environments." },
+        { id: "1d", ref: "1d", name: "Adult service", hint: "Mainly used to share user-generated adult content." },
+        { id: "1e", ref: "1e", name: "Discussion forum or chat room", hint: "Users post messages that the public or an open group can read." },
+        { id: "1f", ref: "1f", name: "Marketplace or listing service", hint: "Users buy and sell goods or services." },
+        { id: "1g", ref: "1g", name: "File-storage or file-sharing service", hint: "Mainly lets users store content and share access to it through links." },
       ],
     },
     {
-      id: "search_type",
-      name: "Search service type",
-      hint: "Tick the option that describes your search service.",
-      services: ["search"],
+      id: "users", name: "User base", services: ["u2u", "search"],
+      factors: [{ id: "2", ref: "2", name: "Child users (under 18) access some or all of the service", hint: "For grooming, consider children anywhere in the world, not only in the UK." }],
+    },
+    {
+      id: "identity", name: "How users identify themselves", services: ["u2u"],
       factors: [
-        { id: "s_general", name: "General search service (searches the whole web)", raises: [ALL] },
-        { id: "s_vertical", name: "Vertical search service (searches a specific sector, such as flights or financial products)", raises: ["fraud"] },
-        { id: "s_predictive", name: "Predictive search (autocomplete) suggestions", raises: ["csam_url", "suicide", "self_harm", "drugs", "fraud", "terrorism"] },
-        { id: "s_image", name: "Image or reverse-image search", raises: ["csam_image", "iia", "extreme_porn"] },
+        { id: "3a", ref: "3a", name: "Users can display identifying information in a profile others can see", hint: "For example images, usernames or age. Ofcom links this to the risks of both user profiles and fake profiles." },
+        { id: "3b", ref: "3b", name: "Users can share content anonymously", hint: "For example anonymous profiles, or access without an account." },
       ],
     },
     {
-      id: "users",
-      name: "User base",
-      hint: "Who uses your service.",
-      services: ["u2u", "search"],
+      id: "networking", name: "How users network", services: ["u2u"],
       factors: [
-        { id: "u_children", name: "Children (under 18) use the service, or are likely to", raises: ["grooming", "csam_image", "harassment", "suicide", "self_harm"] },
-        { id: "u_vulnerable", name: "Users who may be particularly vulnerable (for example people in crisis, recent migrants or people in financial difficulty)", raises: ["fraud", "suicide", "self_harm", "trafficking", "immigration", "sexual_exploitation", "coercive"] },
-        { id: "u_large", name: "Large user base (lots of UK users, so content can reach many people)", raises: [ALL] },
+        { id: "4a", ref: "4a", name: "Users can connect with other users", hint: "For example friending or following." },
+        { id: "4b", ref: "4b", name: "Users can form closed groups or send group messages" },
       ],
     },
     {
-      id: "identity",
-      name: "Accounts and identity",
-      hint: "How people sign up and appear to others.",
-      services: ["u2u"],
+      id: "communication", name: "How users communicate", services: ["u2u"],
       factors: [
-        { id: "f_profiles", name: "Users can create profiles that others can see", raises: ["grooming", "harassment", "fraud", "foreign_interference", "sexual_exploitation", "hate"] },
-        { id: "f_anonymous", name: "Users can be anonymous or use accounts not linked to their identity", raises: ["terrorism", "csam_image", "hate", "harassment", "fraud", "drugs", "iia", "foreign_interference"] },
-        { id: "f_multiple", name: "Users can easily create multiple or fake accounts", raises: ["fraud", "foreign_interference", "harassment", "grooming"] },
-        { id: "f_verification", name: "Users can get a verified, notable or paid-for status badge", raises: ["fraud", "foreign_interference"] },
+        { id: "5a", ref: "5a", name: "Livestreaming", hint: "Open or closed channels." },
+        { id: "5b", ref: "5b", name: "Direct messaging", hint: "Including ephemeral (disappearing) direct messages." },
+        { id: "5c", ref: "5c", name: "Encrypted messaging" },
+        { id: "5d", ref: "5d", name: "Commenting on content" },
+        { id: "5e", ref: "5e", name: "Posting or sending images or videos", hint: "Open or closed channels." },
+        { id: "5f", ref: "5f", name: "Posting or sending location information" },
+        { id: "5g", ref: "5g", name: "Re-posting or forwarding content" },
       ],
     },
     {
-      id: "networking",
-      name: "Connecting users",
-      hint: "How people find and connect with each other.",
-      services: ["u2u"],
+      id: "transactions", name: "Transactions", services: ["u2u"],
+      factors: [{ id: "6", ref: "6", name: "Users can post goods or services for sale" }],
+    },
+    {
+      id: "exploring", name: "Finding content", services: ["u2u"],
       factors: [
-        { id: "f_connections", name: "Users can connect with, follow or friend each other", raises: ["grooming", "harassment", "coercive", "foreign_interference"] },
-        { id: "f_suggestions", name: "The service suggests people to connect with (network expansion prompts)", raises: ["grooming", "harassment"] },
-        { id: "f_groups", name: "Users can form or join groups, channels or chat rooms", raises: ["terrorism", "csam_image", "csam_url", "hate", "drugs", "suicide", "self_harm", "fraud"] },
-        { id: "f_location", name: "Users can share their location, or it can be inferred", raises: ["harassment", "coercive", "grooming", "trafficking"] },
+        { id: "7a", ref: "7a", name: "Users can search for user-generated content" },
+        { id: "7b", ref: "7b", name: "Hyperlinking", hint: "Users can post links, including plain-text URLs." },
       ],
     },
     {
-      id: "communication",
-      name: "Communicating",
-      hint: "How people talk to each other.",
-      services: ["u2u"],
+      id: "recommender", name: "Recommender systems", services: ["u2u"],
       factors: [
-        { id: "f_dm", name: "Direct or private messaging between users", raises: ["grooming", "csam_image", "harassment", "coercive", "iia", "fraud", "drugs", "sexual_exploitation", "trafficking"] },
-        { id: "f_encrypted", name: "End-to-end encrypted messaging", raises: ["grooming", "csam_image", "csam_url", "terrorism", "drugs", "fraud"] },
-        { id: "f_ephemeral", name: "Disappearing or ephemeral messages or posts", raises: ["grooming", "iia", "harassment", "drugs"] },
-        { id: "f_livestream", name: "Livestreaming", raises: ["grooming", "csam_image", "terrorism", "suicide", "self_harm", "harassment", "animal_cruelty"] },
-        { id: "f_voice", name: "Voice or video calls", raises: ["grooming", "harassment", "coercive"] },
-        { id: "f_comments", name: "Commenting on, or reacting to, content", raises: ["grooming", "hate", "harassment", "suicide", "self_harm"] },
+        { id: "8c", ref: "8", name: "Content recommender system", hint: "Algorithms rank or suggest content to users." },
+        { id: "8n", ref: "8", name: "Network recommender system", hint: "Algorithms suggest users or groups to connect with." },
+      ],
+    },
+    // Search Risk Profile [RAG Figure 2 and Table 9.2]. Ofcom does not link
+    // search risk factors to specific harms; use the Register of Risks.
+    {
+      id: "search_type", name: "Search service type", services: ["search"],
+      factors: [
+        { id: "s1a", ref: "1a", name: "General search service (including downstream general search)", hint: "Gives access to webpages from across the web." },
+        { id: "s1b", ref: "1b", name: "Vertical search service", hint: "Searches specific topics, products or services from pre-arranged websites or databases. May be less likely to present illegal content." },
       ],
     },
     {
-      id: "content",
-      name: "Posting and finding content",
-      hint: "What kind of content users can share, and how it spreads.",
-      services: ["u2u"],
+      id: "search_func", name: "Search functionalities", services: ["search"],
       factors: [
-        { id: "f_images", name: "Users can post or send images or videos", raises: ["csam_image", "iia", "extreme_porn", "terrorism", "hate", "animal_cruelty", "suicide", "self_harm"] },
-        { id: "f_links", name: "Users can post hyperlinks", raises: ["csam_url", "terrorism", "fraud", "drugs", "foreign_interference"] },
-        { id: "f_reposting", name: "Users can re-post or forward content", raises: ["terrorism", "hate", "iia", "foreign_interference", "suicide", "self_harm"] },
-        { id: "f_search", name: "Users can search for content or other users", raises: ["csam_image", "csam_url", "terrorism", "drugs", "suicide", "self_harm", "grooming"] },
-        { id: "f_recommender", name: "A recommender system or algorithmic feed decides what users see", raises: ["terrorism", "hate", "harassment", "suicide", "self_harm", "foreign_interference"] },
-        { id: "f_genai", name: "Users can create content with generative AI tools on the service", raises: ["csam_image", "iia", "fraud", "foreign_interference", "extreme_porn"] },
-        { id: "f_storage", name: "Users can store or share files or large collections of content", raises: ["csam_image", "terrorism", "extreme_porn", "iia"] },
-      ],
-    },
-    {
-      id: "transactions",
-      name: "Transactions",
-      hint: "Buying, selling and moving money.",
-      services: ["u2u"],
-      factors: [
-        { id: "f_sale", name: "Users can post goods or services for sale", raises: ["drugs", "weapons", "fraud", "trafficking", "immigration", "sexual_exploitation", "animal_cruelty", "proceeds"] },
-        { id: "f_payments", name: "Users can pay, tip or send money or gifts to each other", raises: ["fraud", "proceeds", "sexual_exploitation", "grooming", "csam_image"] },
-      ],
-    },
-    {
-      id: "business",
-      name: "Business model and capacity",
-      hint: "How the service makes money and how much it can invest in safety.",
-      services: ["u2u", "search"],
-      factors: [
-        { id: "b_ads", name: "Revenue from advertising, including user-generated or paid-for promotion", raises: ["fraud", "foreign_interference"] },
-        { id: "b_subscription", name: "Users can earn money from their content (subscriptions, creator payouts)", raises: ["csam_image", "iia", "extreme_porn", "sexual_exploitation", "trafficking"] },
-        { id: "b_early", name: "Early-stage, fast-growing or low-capacity service (few staff working on safety)", raises: [ALL] },
+        { id: "s3a", ref: "3a", name: "Search predictions or suggestions", hint: "Ofcom's evidence links these to suicide and self-harm methods, hateful queries and fraud." },
+        { id: "s3b", ref: "3b", name: "Image or video search, or reverse image search", hint: "Ofcom's evidence links these to finding CSAM, illegal drugs and non-consensual intimate images." },
       ],
     },
   ];
 
-  // ----- Evidence inputs (Ofcom's core and enhanced inputs).
+  // ----- Which specific risk factors Ofcom links to each kind of harm,
+  // transcribed from [RAG Table 9.1]. "3a" covers both user profiles and
+  // fake user profiles; "4b" covers both user groups and group messaging.
+  const CSAM_BOTH = ["1a", "1b", "1e", "2", "3b", "4b", "5b", "5c"]; // row 2B
+  const profileLinks = {
+    terrorism: ["1a", "1b", "1c", "1e", "1f", "1g", "3b", "4a", "4b", "5a", "5b", "5c", "5d", "5e", "7a", "7b", "8c", "8n"],
+    grooming: ["1a", "1b", "1c", "1e", "2", "3a", "4a", "4b", "5a", "5b", "5c", "5d", "5f", "8n"],
+    csam_image: CSAM_BOTH.concat(["1d", "1g", "5a", "5e"]), // rows 2B + 2B(i)
+    csam_url: CSAM_BOTH.concat(["7b"]), // rows 2B + 2B(ii)
+    suicide: ["1a", "1b", "1e", "3b", "4b", "5a", "5b", "5d", "5e", "5g", "7b", "8c"],
+    hate: ["1a", "1b", "1c", "3a", "3b", "4b", "5a", "5b", "5d", "5e", "8c"],
+    harassment: ["1a", "1b", "1c", "3a", "3b", "4a", "5a", "5b", "5d", "5e", "5f", "5g"],
+    coercive: ["1a", "1b", "3a", "4a", "4b", "5b", "5e", "5f"],
+    drugs: ["1a", "1b", "1f", "3a", "3b", "4a", "4b", "5b", "5c", "5e", "6", "7a", "7b", "8n"],
+    weapons: ["1a", "1b", "1f", "1g", "3b", "5c", "6", "7a"],
+    trafficking: ["1a", "1b", "1f", "3a", "4b", "5b", "5c", "5e", "5f", "6"],
+    immigration: ["1a", "1b", "3a", "4b", "5b", "5c", "5e"],
+    sexual_exploitation: ["1a", "1b", "1f", "3a", "5c", "6"],
+    extreme_porn: ["1a", "1d", "5e", "7a"],
+    iia: ["1a", "1d", "1e", "1g", "4b", "5b", "5e", "5g"],
+    proceeds: ["1a", "1b", "3a", "5b", "7a"],
+    fraud: ["1a", "1b", "1f", "3a", "4a", "4b", "5b", "5c", "5d", "6", "7a", "7b"],
+    foreign_interference: ["1a", "1b", "1e", "3a", "3b", "4a", "4b", "5c", "5e", "5g", "7b", "8c"],
+    animal_cruelty: ["1a", "1b", "4b", "5a", "5d", "5e"],
+    cyberflashing: ["1a", "1b", "3a", "3b", "4a", "5b", "5e"],
+  };
+  // Attach the reverse mapping to each factor for display.
+  factorGroups.forEach((g) =>
+    g.factors.forEach((f) => {
+      f.raises = Object.keys(profileLinks).filter((h) => profileLinks[h].includes(f.id));
+    })
+  );
+
+  // ----- General risk factors that every service must consider [RAG Table 9/9.2].
+  const generalFactors = [
+    { id: "demographics", name: "User base demographics", hint: "Protected characteristics, media literacy, mental health and vulnerability. For example, women and girls are disproportionately affected by grooming, CSAM, harassment, controlling or coercive behaviour, cyberflashing and intimate image abuse." },
+    { id: "business", name: "Business model (revenue model and growth strategy)", hint: "How designing for engagement or revenue could increase risk, and how features such as boosted posts, ad targeting or subscriptions could be misused." },
+    { id: "commercial", name: "Commercial profile", hint: "Whether you are low-capacity, early-stage or fast-growing, which can limit how well you manage risk." },
+  ];
+
+  // ----- Extra questions needed for the CSEA Risk Level Tables [RAG Tables
+  // 13.1 to 13.3] and for the conditions of some Codes measures.
+  const questions = [
+    { id: "q_images_noaccount", services: ["u2u"], label: "Users can share images or videos without creating an account", why: "Image-based CSAM Risk Level Table" },
+    { id: "q_text_noaccount", services: ["u2u"], label: "Users can share text or links without creating an account", why: "CSAM URLs Risk Level Table: normally high risk" },
+    { id: "q_nep_children", services: ["u2u"], label: "Child users can appear in network expansion prompts (for example 'people you may know')", why: "Grooming Risk Level Table: normally high risk" },
+    { id: "q_connection_lists", services: ["u2u"], label: "Child users can be seen in lists of other users' connections", why: "Grooming Risk Level Table: normally high risk" },
+    { id: "q_profiles_reveal", services: ["u2u"], label: "User profiles or groups may let others work out that a user is likely to be a child", why: "Grooming Risk Level Table: normally high risk" },
+    { id: "q_age_means", services: ["u2u"], label: "We have an existing way to determine the age or age range of a user", why: "Condition for Codes measures ICU F1 and F2" },
+    { id: "q_rec_testing", services: ["u2u"], label: "We test changes to content recommender systems on the platform (for example A/B tests)", why: "Condition for Codes measure ICU E1" },
+    { id: "q_notable", services: ["u2u"], label: "We label user profiles under a notable user scheme or a paid-for (monetised) scheme", why: "Condition for Codes measure ICU J3" },
+  ];
+
+  // ----- Evidence inputs [RAG Tables 10 and 12].
   const evidence = {
     core: [
-      { id: "e_profile", name: "Ofcom's Risk Profiles" },
-      { id: "e_complaints", name: "User reports and complaints" },
-      { id: "e_userdata", name: "User data (for example age and user numbers)" },
-      { id: "e_incidents", name: "Past incidents of illegal content on the service" },
-      { id: "e_guidance", name: "Relevant sector or Ofcom guidance (for example the Register of Risks)" },
+      { id: "e_profile", name: "Risk Profile (and relevant parts of Ofcom's Register of Risks)" },
+      { id: "e_complaints", name: "User complaints, including user reports" },
+      { id: "e_userdata", name: "User data, including age where relevant" },
+      { id: "e_incidents", name: "Retrospective analysis of incidents of harm" },
+      { id: "e_other", name: "Other relevant information you hold (for example past risk assessments, product data)" },
     ],
     enhanced: [
-      { id: "e_moderation", name: "Results of content moderation" },
-      { id: "e_research", name: "Commissioned or internal research" },
-      { id: "e_testing", name: "Product testing, including safety-by-design testing" },
-      { id: "e_experts", name: "Consultation with experts" },
-      { id: "e_users", name: "Views of users, including children" },
-      { id: "e_audit", name: "Independent audit or review" },
-      { id: "e_metrics", name: "Engagement and algorithm data" },
+      { id: "e_testing", name: "Results of product testing" },
+      { id: "e_moderation", name: "Results of content moderation systems" },
+      { id: "e_internal_experts", name: "Consultation with internal experts on risks and safety measures" },
+      { id: "e_external_experts", name: "Views of independent experts" },
+      { id: "e_research", name: "Internal and external commissioned research" },
+      { id: "e_audit", name: "Outcomes of external audit or other risk assurance processes" },
+      { id: "e_users", name: "Consultation with users and user research" },
+      { id: "e_groups", name: "Engaging with relevant representative groups" },
     ],
   };
 
-  // ----- Measures, loosely following Ofcom's Illegal Content Codes of
-  // Practice. `when` decides whether a measure is recommended:
-  //   all            every service
-  //   largeOrMulti   large services, or services that are multi-risk
-  //   largeAndMulti  large services that are also multi-risk
-  //   harm           medium or high risk for any of `harms`
-  //   largeOrHarm    large services, or medium or high for any of `harms`
-  //   largeAndHarm   large services with medium or high risk for any of `harms`
-  //   highHarm       high risk for any of `harms`
-  const measures = [
-    // Governance
-    { id: "gov_named", group: "Governance and accountability", services: ["u2u", "search"], when: "all", name: "Name a person accountable for illegal content safety", desc: "A named person is accountable to the most senior governance body for complying with the illegal content safety duties and the reporting and complaints duties." },
-    { id: "gov_review", group: "Governance and accountability", services: ["u2u", "search"], when: "largeOrMulti", name: "Annual review of risk management by senior governance body", desc: "The most senior governance body reviews and records how the service manages risk from illegal harm at least once a year." },
-    { id: "gov_statements", group: "Governance and accountability", services: ["u2u", "search"], when: "largeOrMulti", name: "Written statements of responsibilities", desc: "Senior managers who make decisions about managing illegal content risk have written statements of their responsibilities." },
-    { id: "gov_assurance", group: "Governance and accountability", services: ["u2u", "search"], when: "largeAndMulti", name: "Internal monitoring and assurance function", desc: "An independent internal function assesses how well risk management measures work and reports to the governance body or audit committee." },
-    { id: "gov_tracking", group: "Governance and accountability", services: ["u2u", "search"], when: "largeOrMulti", name: "Track new and increasing illegal harm", desc: "The service tracks evidence of new kinds of illegal content, and unusual increases in particular kinds, and reports it to senior management." },
-    { id: "gov_conduct", group: "Governance and accountability", services: ["u2u", "search"], when: "largeOrMulti", name: "Code of conduct for staff", desc: "A code of conduct sets standards for staff on protecting users from illegal harm." },
-    { id: "gov_training", group: "Governance and accountability", services: ["u2u", "search"], when: "largeOrMulti", name: "Compliance training for staff", desc: "Staff involved in designing and running the service get training on the service's approach to the illegal content duties." },
-
-    // Content moderation
-    { id: "cm_function", group: "Content moderation", services: ["u2u"], when: "all", name: "Content moderation function to review suspected illegal content", desc: "A function that reviews content suspected to be illegal and decides whether it is illegal or breaks the terms of service." },
-    { id: "cm_takedown", group: "Content moderation", services: ["u2u"], when: "all", name: "Swiftly take down illegal content", desc: "When the service becomes aware of illegal content, it is taken down quickly (unless that is not technically feasible)." },
-    { id: "cm_policies", group: "Content moderation", services: ["u2u"], when: "largeOrMulti", name: "Internal content policies", desc: "Written internal policies explain how content is moderated, including what counts as illegal content." },
-    { id: "cm_targets", group: "Content moderation", services: ["u2u"], when: "largeOrMulti", name: "Performance targets for moderation", desc: "Targets for how quickly and accurately suspected illegal content is dealt with, and monitoring against them." },
-    { id: "cm_prioritise", group: "Content moderation", services: ["u2u"], when: "largeOrMulti", name: "Prioritise content for review", desc: "A policy for prioritising which content is reviewed first, considering virality, potential severity and whether it was flagged by a trusted flagger." },
-    { id: "cm_resource", group: "Content moderation", services: ["u2u"], when: "largeOrMulti", name: "Resource moderation adequately", desc: "Enough moderators, with the right language skills, to meet the performance targets, including at times of increased demand." },
-    { id: "cm_moderator_training", group: "Content moderation", services: ["u2u"], when: "largeOrMulti", name: "Training and materials for moderators", desc: "Moderators get training and materials to identify and act on illegal content." },
-    { id: "cm_hash", group: "Content moderation", services: ["u2u"], when: "largeOrHarm", harms: ["csam_image"], name: "Hash matching to detect known CSAM", desc: "Use perceptual hash matching against a database of known child sexual abuse material to detect and remove it, especially where images can be shared publicly or via file-sharing." },
-    { id: "cm_url", group: "Content moderation", services: ["u2u"], when: "largeOrHarm", harms: ["csam_url"], name: "Detect and remove CSAM URLs", desc: "Use a list of URLs known to host CSAM, maintained by an expert organisation, to detect and remove those links." },
-    { id: "cm_terror_hash", group: "Content moderation", services: ["u2u"], when: "highHarm", harms: ["terrorism"], name: "Detect known terrorist content", desc: "Use hash matching or other automated tools to detect known terrorist content where the risk is high." },
-    { id: "cm_fraud_kw", group: "Content moderation", services: ["u2u"], when: "largeAndHarm", harms: ["fraud"], name: "Keyword detection for articles for use in fraud", desc: "Use keyword detection to find and review content offering stolen credentials, card details and other articles for use in fraud." },
-
-    // Reporting and complaints
-    { id: "rc_system", group: "Reporting and complaints", services: ["u2u", "search"], when: "all", name: "Easy to find and use reporting and complaints system", desc: "Users and affected people can easily find, access and use a way to report illegal content and make complaints." },
-    { id: "rc_ack", group: "Reporting and complaints", services: ["u2u", "search"], when: "all", name: "Acknowledge complaints and give timeframes", desc: "Complaints are acknowledged, with an indicative timeframe for dealing with them." },
-    { id: "rc_appeals", group: "Reporting and complaints", services: ["u2u", "search"], when: "all", name: "Handle appeals properly", desc: "Appeals against moderation decisions are handled with clear timeframes, and content or accounts are restored if a decision was wrong." },
-    { id: "rc_fraud_channel", group: "Reporting and complaints", services: ["u2u", "search"], when: "largeAndHarm", harms: ["fraud"], name: "Dedicated reporting channel for trusted flaggers on fraud", desc: "A dedicated channel for trusted flaggers (such as police and regulators) to report fraud." },
-
-    // Terms of service
-    { id: "tos_clear", group: "Terms of service", services: ["u2u", "search"], when: "all", name: "Clear and accessible terms of service", desc: "Terms of service (or a publicly available statement for search) explain how users are protected from illegal content and how complaints are handled, in clear and accessible language." },
-
-    // User controls and default settings
-    { id: "uc_block", group: "User controls and default settings", services: ["u2u"], when: "largeOrHarm", harms: ["harassment", "hate", "grooming", "coercive"], name: "Let users block and mute other accounts", desc: "Users can block or mute other accounts, including all non-connected users." },
-    { id: "uc_comments", group: "User controls and default settings", services: ["u2u"], when: "largeOrHarm", harms: ["harassment", "hate", "grooming"], name: "Let users turn off comments", desc: "Users can disable comments on their own posts." },
-    { id: "dc_children", group: "User controls and default settings", services: ["u2u"], when: "harm", harms: ["grooming"], name: "Safer default settings for child users", desc: "By default, child users are not suggested to others in network expansion prompts, are not shown in other users' connection lists, and cannot be messaged by users they are not connected to." },
-    { id: "dc_support", group: "User controls and default settings", services: ["u2u"], when: "harm", harms: ["grooming"], name: "Supportive information for child users", desc: "Show child users supportive information at key moments, for example when they turn off a default setting or receive a message from someone they don't know." },
-    { id: "uc_verified", group: "User controls and default settings", services: ["u2u"], when: "largeAndHarm", harms: ["fraud", "foreign_interference"], name: "Policies for verified and notable user schemes", desc: "If the service labels some accounts as verified or notable, it has public policies on how this works and explains to users what the labels mean." },
-
-    // Recommender systems
-    { id: "rec_testing", group: "Recommender systems", services: ["u2u"], when: "harm", harms: ["terrorism", "hate", "harassment", "suicide", "self_harm", "foreign_interference", "csam_image", "grooming"], name: "Collect safety metrics when testing recommender changes", desc: "When making changes to recommender systems, collect and analyse safety metrics to check whether the change increases exposure to illegal content." },
-    { id: "rec_crisis", group: "Recommender systems", services: ["u2u"], when: "largeAndHarm", harms: ["terrorism", "hate", "foreign_interference"], name: "Crisis response protocol", desc: "A protocol for responding to crisis events (such as terrorist attacks or riots), including how recommendations and moderation will change." },
-
-    // User access
-    { id: "ua_proscribed", group: "User access", services: ["u2u"], when: "all", name: "Remove accounts of proscribed organisations", desc: "Remove accounts operated by, or on behalf of, proscribed terrorist organisations." },
-    { id: "ua_csam_block", group: "User access", services: ["u2u"], when: "harm", harms: ["csam_image", "csam_url", "grooming"], name: "Block users who share CSAM", desc: "Block accounts that share child sexual abuse material and stop them returning." },
-
-    // Search-specific
-    { id: "s_deindex", group: "Search services", services: ["search"], when: "all", name: "Deindex or downrank illegal content", desc: "Take appropriate moderation action, such as deindexing or downranking, on search content the service is aware is illegal." },
-    { id: "s_predictive", group: "Search services", services: ["search"], when: "largeOrHarm", harms: ["csam_url", "suicide", "self_harm", "drugs", "fraud"], name: "Let users report predictive search suggestions", desc: "Users can easily report predictive search suggestions that direct them to illegal content, and those suggestions are reviewed and removed." },
-    { id: "s_csam_warnings", group: "Search services", services: ["search"], when: "largeOrHarm", harms: ["csam_image", "csam_url"], name: "CSAM warnings and removal of CSAM URLs", desc: "Show warnings, with information about support, to users searching for CSAM, and remove known CSAM URLs from search results." },
-    { id: "s_image_hash", group: "Search services", services: ["search"], when: "largeOrHarm", harms: ["csam_image"], name: "Hash matching for image search results", desc: "Use hash matching to detect and remove known CSAM from image search results." },
-
-    // Support
-    { id: "sup_suicide", group: "Support for users", services: ["u2u", "search"], when: "harm", harms: ["suicide", "self_harm"], name: "Signpost crisis support", desc: "Show crisis prevention information and support (such as helplines) to users who search for, or engage with, content about suicide." },
+  // ----- Codes of Practice measures. `applies(c)` follows each measure's
+  // "Application" paragraph; `rule` is Ofcom's wording, shown to users.
+  // The context `c` is built in app.js.
+  const TCHHF = ["terrorism", "hate", "harassment", "foreign_interference"];
+  const u2u = [
+    // A. Governance and accountability
+    { code: "ICU A1", group: "Governance and accountability", name: "Annual review of risk management activities", rule: "Large services", applies: (c) => c.large },
+    { code: "ICU A2", group: "Governance and accountability", name: "Individual accountable for illegal content safety duties and reporting and complaints duties", rule: "All services", applies: () => true },
+    { code: "ICU A3", group: "Governance and accountability", name: "Written statements of responsibilities", rule: "Large or multi-risk services", applies: (c) => c.large || c.multi },
+    { code: "ICU A4", group: "Governance and accountability", name: "Internal monitoring and assurance", rule: "Large services that are multi-risk", applies: (c) => c.large && c.multi },
+    { code: "ICU A5", group: "Governance and accountability", name: "Tracking evidence of new and increasing illegal harm", rule: "Large or multi-risk services", applies: (c) => c.large || c.multi },
+    { code: "ICU A6", group: "Governance and accountability", name: "Code of conduct regarding protection of users from illegal harm", rule: "Large or multi-risk services", applies: (c) => c.large || c.multi },
+    { code: "ICU A7", group: "Governance and accountability", name: "Compliance training", rule: "Large or multi-risk services", applies: (c) => c.large || c.multi },
+    // C. Content moderation
+    { code: "ICU C1", group: "Content moderation", name: "Content moderation function to review and assess suspected illegal content", rule: "All services", applies: () => true },
+    { code: "ICU C2", group: "Content moderation", name: "Content moderation function that allows for the swift take down of illegal content", rule: "All services", applies: () => true },
+    { code: "ICU C3", group: "Content moderation", name: "Setting internal content policies", rule: "Large or multi-risk services", applies: (c) => c.large || c.multi },
+    { code: "ICU C4", group: "Content moderation", name: "Performance targets", rule: "Large or multi-risk services", applies: (c) => c.large || c.multi },
+    { code: "ICU C5", group: "Content moderation", name: "Prioritisation", rule: "Large or multi-risk services", applies: (c) => c.large || c.multi },
+    { code: "ICU C6", group: "Content moderation", name: "Resourcing", rule: "Large or multi-risk services", applies: (c) => c.large || c.multi },
+    { code: "ICU C7", group: "Content moderation", name: "Training and materials for content moderators (non-volunteers)", rule: "Large or multi-risk services", applies: (c) => c.large || c.multi },
+    { code: "ICU C8", group: "Content moderation", name: "Materials for volunteer moderators", rule: "Large or multi-risk services", applies: (c) => c.large || c.multi },
+    { code: "ICU C9", group: "Content moderation", name: "Using hash matching to detect and remove CSAM", rule: "Large services at medium or high risk of image-based CSAM; or services at high risk of image-based CSAM that have more than 700,000 monthly UK users or are file-storage and file-sharing services", applies: (c) => (c.large && c.medHigh("csam_image")) || (c.high("csam_image") && (c.over700k || c.f["1g"])) },
+    { code: "ICU C10", group: "Content moderation", name: "Detecting and removing content matching listed CSAM URLs", rule: "Large services at medium or high risk of CSAM URLs; or services with more than 700,000 monthly UK users at high risk of CSAM URLs", applies: (c) => (c.large && c.medHigh("csam_url")) || (c.over700k && c.high("csam_url")) },
+    { code: "ICU C14", group: "Content moderation", name: "Using hash matching to detect intimate image abuse content", rule: "Services where images or videos can be shared that are at high risk of intimate image abuse and are mainly for pornography, have more than 700,000 monthly UK users, or are file-storage and file-sharing services; or large services at medium or high risk of intimate image abuse", applies: (c) => (c.images && c.high("iia") && (c.f["1d"] || c.over700k || c.f["1g"])) || (c.large && c.medHigh("iia")) },
+    { code: "ICU C15", group: "Content moderation", name: "Crisis response", rule: "Large services at medium risk of terrorism, hate, harassment or foreign interference; or services at high risk of any of these", applies: (c) => (c.large && c.medium(TCHHF)) || c.high(TCHHF) },
+    { code: "ICU C16", group: "Content moderation", name: "Crisis response (dedicated channel for law enforcement)", rule: "Large services at medium or high risk of terrorism, hate, harassment or foreign interference", applies: (c) => c.large && c.medHigh(TCHHF) },
+    // D. Reporting and complaints
+    { code: "ICU D1", group: "Reporting and complaints", name: "Enabling complaints", rule: "All services", applies: () => true },
+    { code: "ICU D2", group: "Reporting and complaints", name: "Easy to find, easy to access and easy to use complaints systems and processes", rule: "All services", applies: () => true },
+    { code: "ICU D3", group: "Reporting and complaints", name: "Information before a complaint is submitted", rule: "Services likely to be accessed by children that are large or at medium or high risk of any kind of illegal harm", applies: (c) => c.likelyChildren && (c.large || c.anyMedHigh) },
+    { code: "ICU D4", group: "Reporting and complaints", name: "Sending indicative timeframes", rule: "Services that are large or at medium or high risk of any kind of illegal harm", applies: (c) => c.large || c.anyMedHigh },
+    { code: "ICU D5", group: "Reporting and complaints", name: "Sending further information about how the complaint will be handled", rule: "Services likely to be accessed by children that are large or at medium or high risk of any kind of illegal harm", applies: (c) => c.likelyChildren && (c.large || c.anyMedHigh) },
+    { code: "ICU D6", group: "Reporting and complaints", name: "Opt-out from communications following a complaint", rule: "Services that are large or at medium or high risk of any kind of illegal harm", applies: (c) => c.large || c.anyMedHigh },
+    { code: "ICU D7", group: "Reporting and complaints", name: "Appropriate action for complaints about suspected illegal content", rule: "All services", applies: () => true },
+    { code: "ICU D8", group: "Reporting and complaints", name: "Appeals: determination (large or multi-risk services)", rule: "Large or multi-risk services", applies: (c) => c.large || c.multi },
+    { code: "ICU D9", group: "Reporting and complaints", name: "Appeals: determination (other services)", rule: "Services that are neither large nor multi-risk", applies: (c) => !c.large && !c.multi },
+    { code: "ICU D10", group: "Reporting and complaints", name: "Appeals: action following determination", rule: "All services", applies: () => true },
+    { code: "ICU D11", group: "Reporting and complaints", name: "Complaints about proactive technology that are not appeals", rule: "All services", applies: () => true },
+    { code: "ICU D12", group: "Reporting and complaints", name: "Appropriate action for all other relevant complaints", rule: "All services", applies: () => true },
+    { code: "ICU D13", group: "Reporting and complaints", name: "Exception: manifestly unfounded complaints", rule: "All services", applies: () => true },
+    { code: "ICU D14", group: "Reporting and complaints", name: "Dedicated reporting channel for trusted flaggers to report fraud", rule: "Large services at medium or high risk of fraud", applies: (c) => c.large && c.medHigh("fraud") },
+    // E. Recommender systems
+    { code: "ICU E1", group: "Recommender systems", name: "Collecting safety metrics during on-platform testing of content recommender systems", rule: "Services that test content recommender systems on the platform and are at medium or high risk of two or more of: terrorism, CSAM (imagery or URLs), suicide, hate, harassment, drugs, extreme pornography, intimate image abuse, foreign interference", applies: (c) => c.q.q_rec_testing && c.countMedHigh([["terrorism"], ["csam_image", "csam_url"], ["suicide"], ["hate"], ["harassment"], ["drugs"], ["extreme_porn"], ["iia"], ["foreign_interference"]]) >= 2 },
+    // F. Settings, functionalities and user support
+    { code: "ICU F1", group: "Settings, functionalities and user support", name: "Safety defaults for child users", rule: "Services with an existing way to determine users' age that have network expansion prompts, connection lists or direct messaging, and are at high risk of grooming (or large and at medium risk)", applies: (c) => c.q.q_age_means && (c.f["5b"] || c.f["4a"] || c.f["8n"]) && (c.high("grooming") || (c.large && c.medium("grooming"))) },
+    { code: "ICU F2", group: "Settings, functionalities and user support", name: "Support for child users", rule: "As ICU F1", applies: (c) => c.q.q_age_means && (c.f["5b"] || c.f["4a"] || c.f["8n"]) && (c.high("grooming") || (c.large && c.medium("grooming"))) },
+    // G. Terms of service
+    { code: "ICU G1", group: "Terms of service", name: "Terms of service: substance", rule: "All services", applies: () => true },
+    { code: "ICU G2", group: "Terms of service", name: "Terms of service: substance (Category 1 services)", rule: "Category 1 services", applies: (c) => c.category === "1" },
+    { code: "ICU G3", group: "Terms of service", name: "Terms of service: clarity and accessibility", rule: "All services", applies: () => true },
+    // H. User access
+    { code: "ICU H1", group: "User access", name: "Removing accounts of proscribed organisations", rule: "All services", applies: () => true },
+    // J. User controls
+    { code: "ICU J1", group: "User controls", name: "User blocking and muting", rule: "Large services at medium or high risk of grooming, suicide, hate, harassment or controlling or coercive behaviour, with user profiles and connections, posting or communication functions", applies: (c) => c.large && c.medHigh(["grooming", "suicide", "hate", "harassment", "coercive"]) && c.f["3a"] && (c.f["4a"] || c.f["5e"] || c.f["5b"] || c.f["5d"] || c.f["1a"] || c.f["1e"]) },
+    { code: "ICU J2", group: "User controls", name: "Disabling comments", rule: "Large services at medium or high risk of grooming, suicide, hate or harassment that let users comment on content", applies: (c) => c.large && c.medHigh(["grooming", "suicide", "hate", "harassment"]) && c.f["5d"] },
+    { code: "ICU J3", group: "User controls", name: "Notable user and monetised labelling schemes", rule: "Large services at medium or high risk of fraud or foreign interference that label profiles under a notable user or monetised scheme", applies: (c) => c.large && c.medHigh(["fraud", "foreign_interference"]) && c.q.q_notable },
   ];
+  const search = [
+    { code: "ICS A1", group: "Governance and accountability", name: "Annual review of risk management activities", rule: "Large general search services", applies: (c) => c.largeGeneral },
+    { code: "ICS A2", group: "Governance and accountability", name: "Individual accountable for illegal content safety duties and reporting and complaints duties", rule: "All services", applies: () => true },
+    { code: "ICS A3", group: "Governance and accountability", name: "Written statements of responsibilities", rule: "Large general search services or multi-risk services", applies: (c) => c.largeGeneral || c.multi },
+    { code: "ICS A4", group: "Governance and accountability", name: "Internal monitoring and assurance", rule: "Large services that are multi-risk", applies: (c) => c.large && c.multi },
+    { code: "ICS A5", group: "Governance and accountability", name: "Tracking evidence of new and increasing illegal harm", rule: "Large general search services or multi-risk services", applies: (c) => c.largeGeneral || c.multi },
+    { code: "ICS A6", group: "Governance and accountability", name: "Code of conduct regarding protection of users from illegal harm", rule: "Large general search services or multi-risk services", applies: (c) => c.largeGeneral || c.multi },
+    { code: "ICS A7", group: "Governance and accountability", name: "Compliance training", rule: "Large general search services or multi-risk services", applies: (c) => c.largeGeneral || c.multi },
+    { code: "ICS C1", group: "Search moderation", name: "Search moderation function designed to action illegal content", rule: "All services", applies: () => true },
+    { code: "ICS C2", group: "Search moderation", name: "Setting internal content policies", rule: "Large general search services or multi-risk services", applies: (c) => c.largeGeneral || c.multi },
+    { code: "ICS C3", group: "Search moderation", name: "Performance targets", rule: "Large general search services or multi-risk services", applies: (c) => c.largeGeneral || c.multi },
+    { code: "ICS C4", group: "Search moderation", name: "Prioritisation", rule: "Large general search services or multi-risk services", applies: (c) => c.largeGeneral || c.multi },
+    { code: "ICS C5", group: "Search moderation", name: "Resourcing", rule: "Large general search services or multi-risk services", applies: (c) => c.largeGeneral || c.multi },
+    { code: "ICS C6", group: "Search moderation", name: "Training and materials for search moderators (non-volunteers)", rule: "Large general search services or multi-risk services", applies: (c) => c.largeGeneral || c.multi },
+    { code: "ICS C7", group: "Search moderation", name: "Removing listed CSAM URLs from search results", rule: "All general search services", applies: (c) => c.f.s1a },
+    { code: "ICS C8", group: "Search moderation", name: "Using hash matching to detect intimate image abuse content", rule: "Large general search services", applies: (c) => c.largeGeneral },
+    { code: "ICS D1", group: "Reporting and complaints", name: "Enabling complaints", rule: "All services", applies: () => true },
+    { code: "ICS D2", group: "Reporting and complaints", name: "Easy to find, easy to access and easy to use complaints systems and processes", rule: "All services", applies: () => true },
+    { code: "ICS D3", group: "Reporting and complaints", name: "Sending indicative timeframes", rule: "Large general search services or services at medium or high risk of any kind of illegal harm", applies: (c) => c.largeGeneral || c.anyMedHigh },
+    { code: "ICS D4", group: "Reporting and complaints", name: "Sending further information about how the complaint will be handled", rule: "Large general search services or services at medium or high risk of any kind of illegal harm, that are likely to be accessed by children", applies: (c) => c.likelyChildren && (c.largeGeneral || c.anyMedHigh) },
+    { code: "ICS D5", group: "Reporting and complaints", name: "Opt-out from communications following a complaint", rule: "Large general search services or services at medium or high risk of any kind of illegal harm", applies: (c) => c.largeGeneral || c.anyMedHigh },
+    { code: "ICS D6", group: "Reporting and complaints", name: "Appropriate action for complaints about suspected illegal content", rule: "All services", applies: () => true },
+    { code: "ICS D7", group: "Reporting and complaints", name: "Appeals: determination (large general or multi-risk services)", rule: "Large general search services or multi-risk services", applies: (c) => c.largeGeneral || c.multi },
+    { code: "ICS D8", group: "Reporting and complaints", name: "Appeals: determination (other services)", rule: "Services that are neither large general search services nor multi-risk", applies: (c) => !c.largeGeneral && !c.multi },
+    { code: "ICS D9", group: "Reporting and complaints", name: "Appeals: action following determination", rule: "All services", applies: () => true },
+    { code: "ICS D10", group: "Reporting and complaints", name: "Complaints about proactive technology that are not appeals", rule: "All services", applies: () => true },
+    { code: "ICS D11", group: "Reporting and complaints", name: "Appropriate action for all other relevant complaints", rule: "All services", applies: () => true },
+    { code: "ICS D12", group: "Reporting and complaints", name: "Exception: manifestly unfounded complaints", rule: "All services", applies: () => true },
+    { code: "ICS D13", group: "Reporting and complaints", name: "Dedicated reporting channel for trusted flaggers to report fraud", rule: "Large general search services at medium or high risk of fraud", applies: (c) => c.largeGeneral && c.medHigh("fraud") },
+    { code: "ICS F1", group: "Settings, functionalities and user support", name: "Reporting and removal of predictive search suggestions", rule: "Large general search services that use predictive search", applies: (c) => c.largeGeneral && c.f.s3a },
+    { code: "ICS F2", group: "Settings, functionalities and user support", name: "Provision of CSAM content warnings", rule: "Large general search services", applies: (c) => c.largeGeneral },
+    { code: "ICS F3", group: "Settings, functionalities and user support", name: "Provision of suicide crisis prevention information", rule: "Large general search services", applies: (c) => c.largeGeneral },
+    { code: "ICS G1", group: "Publicly available statements", name: "Publicly available statements: substance", rule: "All services", applies: () => true },
+    { code: "ICS G2", group: "Publicly available statements", name: "Publicly available statements: substance (Category 2A services)", rule: "Category 2A services", applies: (c) => c.category === "2A" },
+    { code: "ICS G3", group: "Publicly available statements", name: "Publicly available statements: clarity and accessibility", rule: "All services", applies: () => true },
+  ];
+  const measures = u2u.map((m) => Object.assign({ id: m.code.replace(/\s/g, "_"), service: "u2u" }, m))
+    .concat(search.map((m) => Object.assign({ id: m.code.replace(/\s/g, "_"), service: "search" }, m)));
+
+  // ----- Risk level guidance [RAG Table 13], condensed.
+  const levelGuide = {
+    likelihood: [
+      { id: "low", name: "Low", hint: "No evidence of this harm and no or few of the linked risk factors, or comprehensive controls that your evidence shows are very effective." },
+      { id: "medium", name: "Medium", hint: "Evidence it occurs or is likely, or several linked risk factors without controls you can show are effective." },
+      { id: "high", name: "High", hint: "Significant evidence it occurs or is very likely, or many linked risk factors and no effective controls." },
+    ],
+    impact: [
+      { id: "low", name: "Low", hint: "Limited potential for harm: very few people affected and low severity." },
+      { id: "medium", name: "Medium", hint: "A moderate amount of this content or moderate harm, or some scope to affect many people (for example 700,000 to 7 million monthly UK users)." },
+      { id: "high", name: "High", hint: "A substantial amount of this content or harm to many people, a severe impact even on a few, or broad reach (for example over 7 million monthly UK users)." },
+    ],
+  };
 
   const statuses = [
     { id: "implemented", name: "Implemented" },
@@ -369,5 +332,5 @@ window.OSRA_DATA = (function () {
     { id: "high", name: "High" },
   ];
 
-  return { harms, factorGroups, evidence, measures, statuses, levels, ALL };
+  return { SOURCES, harms, factorGroups, profileLinks, generalFactors, questions, evidence, measures, levelGuide, statuses, levels };
 })();

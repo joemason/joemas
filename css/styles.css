@@ -270,6 +270,10 @@ details.panel > summary { cursor: pointer; }
 .report-harm p { white-space: pre-wrap; margin-bottom: 6px; }
 .report-foot { margin-top: 24px; }
 
+.code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85em; color: var(--accent-strong); background: var(--accent-soft); padding: 1px 6px; border-radius: 4px; margin-right: 4px; white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.factor-group-section { border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 24px; }
+
 /* Dialogs */
 .modal { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25); }
 .modal::backdrop { background: rgba(10, 16, 22, 0.55); }

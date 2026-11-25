@@ -22,11 +22,8 @@
     { id: "report", name: "Report", short: "Report" },
   ];
 
-  const MATRIX = {
-    low: { low: "low", medium: "low", high: "medium" },
-    medium: { low: "low", medium: "medium", high: "high" },
-    high: { low: "medium", medium: "high", high: "high" },
-  };
+  const ORDER = { negligible: 0, low: 1, medium: 2, high: 3 };
+  const higher = (x, y) => (ORDER[x] >= ORDER[y] ? x : y);
 
   // ---------- storage ----------
   let storageOk = true;
@@ -104,7 +101,7 @@
   function blankAssessment() {
     return {
       id: uid(),
-      version: 1,
+      version: 2,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       profile: { kinds: { u2u: true, search: false }, startDate: today() },
@@ -113,6 +110,8 @@
       harms: {},
       measures: {},
       customMeasures: [],
+      questions: {},
+      general: {},
       review: {},
     };
   }
@@ -133,75 +132,136 @@
     const visible = new Set(groupsFor(a).flatMap((g) => g.factors.map((f) => f.id)));
     return allFactors.filter((f) => visible.has(f.id) && a.factors[f.id]);
   }
+  function hasFactor(a) {
+    const set = {};
+    activeFactors(a).forEach((f) => (set[f.id] = true));
+    return set;
+  }
   function factorsForHarm(a, harmId) {
-    return activeFactors(a).filter((f) => f.raises.includes(D.ALL) || f.raises.includes(harmId));
+    return activeFactors(a).filter((f) => (f.raises || []).includes(harmId));
   }
-  function harmLevel(entry) {
-    if (!entry) return null;
-    if (entry.negligible) return "negligible";
-    if (entry.override) return entry.override;
-    if (entry.likelihood && entry.impact) return MATRIX[entry.likelihood][entry.impact];
-    return null;
+  function profileCount(harmId) {
+    return (D.profileLinks[harmId] || []).length;
   }
-  function suggestedLevel(entry) {
-    if (!entry || !entry.likelihood || !entry.impact) return null;
-    return MATRIX[entry.likelihood][entry.impact];
+  function users(a) {
+    return Number(String((a.profile && a.profile.ukUsers) || "").replace(/[^0-9.]/g, "")) || 0;
+  }
+  function childrenCanAccess(a) {
+    const c = a.profile && a.profile.children;
+    return c === "yes" || c === "unsure";
+  }
+
+  // Indicative levels from Ofcom's CSEA Risk Level Tables (RAG Tables
+  // 13.1 to 13.3). Ofcom says not to apply them mechanically, so these are
+  // shown as guidance alongside the user's own judgement.
+  function cseaIndicative(a, harmId) {
+    if (!kinds(a).includes("u2u")) return null;
+    const f = hasFactor(a);
+    const q = a.questions || {};
+    const ev = ((a.harms[harmId] || {}).occurrence) || "";
+    const count = (ids) => ids.filter((id) => (id === "noaccount" ? q.q_images_noaccount : f[id])).length;
+    const fromEvidence = ev === "significant" ? "high" : ev === "some" ? "medium" : null;
+    let level, why;
+    if (harmId === "csam_image") {
+      const images = f["5e"] || f["1d"] || f["1g"] || f["5a"];
+      const list = ["2", "1a", "1b", "1e", "4b", "5a", "5b", "5c", "noaccount"];
+      const n = count(list);
+      if (!images) { level = "negligible"; why = "Users can't generate, upload or share images or videos."; }
+      else if (f["1g"] || f["1d"]) { level = "high"; why = "Image sharing on a file-storage, file-sharing or adult service is normally high risk."; }
+      else if (n >= 5) { level = "high"; why = `You have ${n} of the 9 risk factors in Ofcom's table ('a lot').`; }
+      else if (n >= 2) { level = "medium"; why = `You have ${n} of the 9 risk factors in Ofcom's table ('several').`; }
+      else { level = "low"; why = `You have ${n} of the 9 risk factors in Ofcom's table, and no evidence of image-based CSAM.`; }
+    } else if (harmId === "csam_url") {
+      const text = ["1a", "1b", "1c", "1e", "4b", "5b", "5d", "7b"].some((id) => f[id]) || q.q_text_noaccount;
+      const list = ["2", "1a", "1b", "1e", "4b", "5b", "5c"];
+      const n = count(list);
+      if (!text) { level = "negligible"; why = "Users can't share text or hyperlinks."; }
+      else if (q.q_text_noaccount) { level = "high"; why = "Users can share text or links without an account, which is normally high risk."; }
+      else if (n >= 2) { level = "medium"; why = `You have ${n} of the 7 risk factors in Ofcom's table ('several').`; }
+      else { level = "low"; why = `You have ${n} of the 7 risk factors in Ofcom's table, and no evidence of CSAM URLs.`; }
+    } else if (harmId === "grooming") {
+      const list = ["1a", "1b", "1c", "5a", "5c", "5d"];
+      const n = count(list);
+      if (!childrenCanAccess(a)) { level = "negligible"; why = "Children can't access the service."; }
+      else if (!f["5b"]) { level = "low"; why = "Children can access the service, but users can't message them one-to-one."; }
+      else if (q.q_nep_children || q.q_connection_lists || q.q_profiles_reveal) { level = "high"; why = "Children can be messaged one-to-one and can be identified or suggested to other users, which is normally high risk."; }
+      else if (n >= 4) { level = "high"; why = `Children can be messaged one-to-one and you have ${n} of the 6 risk factors in Ofcom's table ('a lot').`; }
+      else if (n >= 2) { level = "medium"; why = `Children can be messaged one-to-one and you have ${n} of the 6 risk factors in Ofcom's table ('several').`; }
+      else { level = "low"; why = "Children can be messaged one-to-one, but you have few of the risk factors in Ofcom's table."; }
+    } else return null;
+    if (fromEvidence && ORDER[fromEvidence] >= ORDER[level]) {
+      level = fromEvidence;
+      why = ev === "significant" ? "There is evidence it has occurred to a significant extent, which is the strongest indicator of high risk." : "There is evidence it has occurred, but not to a significant extent, which is a strong indicator of medium risk.";
+    }
+    return { level, why };
+  }
+  // Ofcom: where evidence isn't conclusive, err on the side of caution and
+  // choose the higher level (RAG 3.3). So suggest the higher of the two.
+  function suggestedLevel(a, harmId) {
+    const e = a.harms[harmId] || {};
+    let s = e.likelihood && e.impact ? higher(e.likelihood, e.impact) : null;
+    const ind = harmById[harmId] && harmById[harmId].csea ? cseaIndicative(a, harmId) : null;
+    if (ind && s) s = higher(s, ind.level);
+    else if (ind && !s && (e.likelihood || e.impact)) s = null;
+    return s;
+  }
+  function harmLevelOf(a, harmId) {
+    const e = a.harms[harmId];
+    if (!e) return null;
+    if (e.negligible) return "negligible";
+    if (e.override) return e.override;
+    return suggestedLevel(a, harmId);
   }
   function levelsMap(a) {
     const m = {};
-    D.harms.forEach((x) => (m[x.id] = harmLevel(a.harms[x.id])));
+    D.harms.forEach((x) => (m[x.id] = harmLevelOf(a, x.id)));
     return m;
   }
   function isLarge(a) {
-    const n = Number(String((a.profile && a.profile.ukUsers) || "").replace(/[^0-9.]/g, ""));
-    return n > LARGE_THRESHOLD;
+    return users(a) > LARGE_THRESHOLD;
+  }
+  // Multi-risk: medium or high for 2+ kinds of harm in the Codes' Table C,
+  // counting CSEA once (ICU 5.6). Cyberflashing and other content don't count.
+  function multiRiskKinds(a) {
+    const m = levelsMap(a);
+    const mh = (id) => m[id] === "medium" || m[id] === "high";
+    const kindsList = D.harms.filter((x) => x.codes !== false && !x.csea).filter((x) => mh(x.id)).map((x) => x.name);
+    if (D.harms.some((x) => x.csea && mh(x.id))) kindsList.unshift("CSEA");
+    return kindsList;
   }
   function multiRiskCount(a) {
-    const m = levelsMap(a);
-    return D.harms.filter((x) => x.id !== "other" && (m[x.id] === "medium" || m[x.id] === "high")).length;
+    return multiRiskKinds(a).length;
   }
   function isMulti(a) {
     return multiRiskCount(a) >= 2;
   }
-
-  // Returns a reason string if the measure is recommended, otherwise null.
-  function recommendation(a, m) {
-    const ks = kinds(a);
-    if (!m.services.some((s) => ks.includes(s))) return null;
-    const large = isLarge(a);
-    const multi = isMulti(a);
-    const lv = levelsMap(a);
-    const atRisk = (m.harms || []).filter((id) => lv[id] === "medium" || lv[id] === "high");
-    const atHigh = (m.harms || []).filter((id) => lv[id] === "high");
-    const names = (ids) => ids.map((id) => harmById[id].name).join("; ");
-    switch (m.when) {
-      case "all":
-        return "Recommended for all services";
-      case "largeOrMulti":
-        if (large && multi) return "Your service is large and multi-risk";
-        if (large) return "Your service is large";
-        if (multi) return "Your service is multi-risk";
-        return null;
-      case "largeAndMulti":
-        return large && multi ? "Your service is large and multi-risk" : null;
-      case "harm":
-        return atRisk.length ? "Medium or high risk of: " + names(atRisk) : null;
-      case "highHarm":
-        return atHigh.length ? "High risk of: " + names(atHigh) : null;
-      case "largeOrHarm":
-        if (atRisk.length) return "Medium or high risk of: " + names(atRisk);
-        if (large) return "Your service is large";
-        return null;
-      case "largeAndHarm":
-        return large && atRisk.length ? "Large service with medium or high risk of: " + names(atRisk) : null;
-    }
-    return null;
+  function codesContext(a) {
+    const m = levelsMap(a);
+    const list = (ids) => (Array.isArray(ids) ? ids : [ids]);
+    const f = hasFactor(a);
+    return {
+      large: isLarge(a),
+      largeGeneral: isLarge(a) && !!f.s1a,
+      over700k: users(a) > 700000,
+      multi: isMulti(a),
+      f,
+      q: a.questions || {},
+      images: !!(f["5e"] || f["1d"] || f["1g"] || f["5a"]),
+      category: a.profile.category || "",
+      likelyChildren: childrenCanAccess(a),
+      anyMedHigh: D.harms.some((x) => !x.other && (m[x.id] === "medium" || m[x.id] === "high")),
+      medHigh: (ids) => list(ids).some((id) => m[id] === "medium" || m[id] === "high"),
+      high: (ids) => list(ids).some((id) => m[id] === "high"),
+      medium: (ids) => list(ids).some((id) => m[id] === "medium"),
+      countMedHigh: (groups) => groups.filter((g) => g.some((id) => m[id] === "medium" || m[id] === "high")).length,
+    };
   }
   function measuresFor(a) {
     const ks = kinds(a);
+    const c = codesContext(a);
     return D.measures
-      .filter((m) => m.services.some((s) => ks.includes(s)))
-      .map((m) => ({ m, reason: recommendation(a, m) }));
+      .filter((m) => ks.includes(m.service))
+      .map((m) => ({ m, reason: m.applies(c) ? m.rule : null }));
   }
 
   // ---------- progress ----------
@@ -213,13 +273,13 @@
       case "factors":
         return !!a.factorsReviewed;
       case "harms":
-        return D.harms.every((x) => harmLevel(a.harms[x.id]) && (a.harms[x.id].rationale || "").trim());
+        return D.harms.every((x) => harmLevelOf(a, x.id) && (a.harms[x.id].rationale || "").trim());
       case "measures": {
         const rec = measuresFor(a).filter((r) => r.reason);
         return rec.length > 0 && rec.every((r) => (a.measures[r.m.id] || {}).status);
       }
       case "review":
-        return !!(a.review.approver && a.review.approvedOn && a.review.nextReview);
+        return !!(a.review.responsible && a.review.approver && a.review.approvedOn && a.review.nextReview);
       case "report":
         return STEPS.slice(0, 5).every((s) => stepDone(a, s.id));
     }
@@ -378,11 +438,11 @@
           <p>Providers of user-to-user services (where users can share content or interact) and search services that have links with the UK
           must carry out a suitable and sufficient illegal content risk assessment, keep a written record of it, and keep it up to date.</p></details>
         <details><summary>When should I review it?</summary>
-          <p>Keep it up to date: review it regularly (many services do this every year), and before you make a significant change to your service.
-          You should also review it if Ofcom changes its Risk Profiles in a way that affects your service.</p></details>
+          <p>Ofcom recommends reviewing it at least every 12 months. You must also carry out a new assessment before making a significant change to your service,
+          and you should review it if Ofcom changes its Risk Profiles in a way that affects your service.</p></details>
         <details><summary>What's a "large" or "multi-risk" service?</summary>
           <p>In Ofcom's Codes, a <strong>large</strong> service has more than 7 million monthly active UK users on average.
-          A <strong>multi-risk</strong> service has a medium or high risk for at least two kinds of illegal harm. Some measures only apply to these services,
+          A <strong>multi-risk</strong> service has a medium or high risk for at least two kinds of illegal harm (CSEA counts once, and cyberflashing doesn't count). Some measures only apply to these services,
           and this tool works that out from your answers.</p></details>
         <details><summary>What about children's risk assessments?</summary>
           <p>Services likely to be accessed by children must also carry out a children's access assessment and a children's risk assessment.
@@ -437,40 +497,74 @@
         ],
       })}
       ${p.children === "yes" || p.children === "unsure" ? `<p class="callout">You'll also need a children's access assessment and, if children can access the service, a children's risk assessment. We've ticked the child users risk factor for you on the next step.</p>` : ""}
+      ${field({
+        a,
+        path: "profile.category",
+        label: "Is the service a categorised service?",
+        type: "select",
+        hint: "Ofcom keeps a register of categorised services. Most services aren't categorised.",
+        options: [
+          { id: "none", name: "No, or not yet" },
+          { id: "1", name: "Category 1" },
+          { id: "2A", name: "Category 2A" },
+          { id: "2B", name: "Category 2B" },
+        ],
+        narrow: true,
+      })}
       ${field({ a, path: "profile.startDate", label: "Date assessment started", type: "date", narrow: true })}`;
   }
 
   function viewFactors(a) {
     const groups = groupsFor(a);
     const count = activeFactors(a).length;
+    const ks = kinds(a);
+    const qs = D.questions.filter((q) => q.services.some((s) => ks.includes(s)));
     return `
       <h2>Identify your risk factors</h2>
-      <p class="lede">Ofcom's Risk Profiles list features that are linked to a higher risk of illegal harm.
-      Tick everything that applies to your service. Having a risk factor doesn't mean the risk is high: it tells you where to look closely in the next step.</p>
-      <p class="callout"><strong>${count}</strong> risk factor${count === 1 ? "" : "s"} selected.</p>
+      <p class="lede">These are the questions from Ofcom's Risk Profiles. Tick everything that applies to your service, in any version (for example web and app).
+      Having a risk factor doesn't mean the risk is high: it shows you where to look closely in the next step.</p>
+      <p class="callout"><strong>${count}</strong> specific risk factor${count === 1 ? "" : "s"} selected.</p>
       ${groups
         .map(
           (g) => `<fieldset class="field factor-group">
             <legend>${h(g.name)}</legend>
-            <p class="hint">${h(g.hint)}</p>
+            ${g.hint ? `<p class="hint">${h(g.hint)}</p>` : ""}
             <div class="factor-grid">
               ${g.factors
                 .map((f) => {
-                  const n = f.raises.includes(D.ALL) ? "all harms" : f.raises.length + " harm" + (f.raises.length === 1 ? "" : "s");
-                  return checkbox(a, "factors." + f.id, f.name, "Linked to " + n);
+                  const linked = f.raises.length
+                    ? (f.hint ? f.hint + " " : "") + "Ofcom links it to " + f.raises.length + " of the harms you'll assess."
+                    : f.hint || "";
+                  return checkbox(a, "factors." + f.id, `${f.ref}. ${f.name}`, linked, "c-factors-" + f.id);
                 })
                 .join("")}
             </div>
           </fieldset>`
         )
         .join("")}
+      <section class="factor-group-section">
+        <h3>General risk factors</h3>
+        <p class="hint">Every service must take account of these. Describe how each applies to your service.</p>
+        ${D.generalFactors
+          .map((g) => field({ a, path: "general." + g.id, id: "g-" + g.id, label: g.name, type: "textarea", rows: 3, hint: h(g.hint) }))
+          .join("")}
+      </section>
+      ${
+        qs.length
+          ? `<fieldset class="field factor-group">
+        <legend>A few more questions</legend>
+        <p class="hint">Ofcom's risk level tables for child sexual exploitation and abuse, and some Codes measures, depend on these.</p>
+        ${qs.map((q) => checkbox(a, "questions." + q.id, q.label, "Used for: " + q.why, "q-" + q.id)).join("")}
+      </fieldset>`
+          : ""
+      }
       ${field({
         a,
         path: "factorsNotes",
-        label: "Other characteristics that affect risk",
+        label: "Other characteristics you've considered",
         type: "textarea",
         optional: true,
-        hint: "Anything else about your service, users or business model that could make illegal harm more or less likely.",
+        hint: "Anything else about your user base, business model, functionalities, governance or systems that could make illegal harm more or less likely.",
       })}`;
   }
 
@@ -485,11 +579,12 @@
     const lv = levelsMap(a);
     const counts = { high: 0, medium: 0, low: 0, negligible: 0, none: 0 };
     D.harms.forEach((x) => counts[lv[x.id] || "none"]++);
-    const multi = multiRiskCount(a);
+    const multiKinds = multiRiskKinds(a);
+    const searchOnly = !kinds(a).includes("u2u");
     return `
       <h2>Assess the risk of each kind of illegal harm</h2>
-      <p class="lede">For each harm, consider how likely it is to happen on your service and how severe the impact would be, using the evidence you have.
-      We suggest a risk level from your answers. You can change it, but explain why.</p>
+      <p class="lede">For each kind of harm, judge how likely it is and how severe the impact would be, using your evidence and taking account of your existing controls.
+      Where the evidence isn't conclusive, Ofcom expects you to choose the higher level, so we suggest the higher of the two. You can assign a different level, but explain why.</p>
       <div class="summary-bar" aria-label="Risk level summary">
         <span>${badge("high")} ${counts.high}</span>
         <span>${badge("medium")} ${counts.medium}</span>
@@ -497,35 +592,54 @@
         <span>${badge("negligible")} ${counts.negligible}</span>
         <span>${badge(null)} ${counts.none}</span>
       </div>
-      ${multi >= 2 ? `<p class="callout callout-warn">Your service is <strong>multi-risk</strong>: it has a medium or high risk for ${multi} kinds of priority illegal harm.</p>` : ""}
+      ${multiKinds.length >= 2 ? `<p class="callout callout-warn">Your service is <strong>multi-risk</strong>: it has a medium or high risk for ${multiKinds.length} kinds of illegal harm (${h(multiKinds.join(", "))}).</p>` : ""}
       <div class="harm-list">
         ${D.harms
           .map((x) => {
             const e = a.harms[x.id] || {};
             const level = lv[x.id];
-            const sug = suggestedLevel(e);
+            const sug = suggestedLevel(a, x.id);
             const facs = factorsForHarm(a, x.id);
+            const total = profileCount(x.id);
+            const ind = x.csea ? cseaIndicative(a, x.id) : null;
             const complete = level && (e.rationale || "").trim();
             const open = openHarms.has(x.id);
+            let factorBox;
+            if (x.other) factorBox = `<p class="muted small">Ofcom's Risk Profiles don't cover other illegal content. Assess it if you have evidence or reason to believe it may occur on your service; the Register of Risks describes some non-priority offences.</p>`;
+            else if (searchOnly) factorBox = `<p class="muted small">For search services, Ofcom doesn't link risk factors to particular harms. Use the Register of Risks and your own evidence to judge likelihood.</p>`;
+            else if (facs.length) factorBox = `<div class="factors-hit"><p class="mini-legend">You have ${facs.length} of the ${total} risk factors Ofcom links to this harm</p><ul>${facs.map((f) => `<li>${h(f.ref + ". " + f.name)}</li>`).join("")}</ul></div>`;
+            else factorBox = `<p class="muted small">You have none of the ${total} risk factors Ofcom links to this harm. You still need to assess it, but the risk may be lower.</p>`;
             return `<details class="harm" data-harm="${x.id}"${open ? " open" : ""}>
               <summary>
                 <span class="harm-name">${h(x.name)}</span>
-                <span class="harm-meta">${facs.length ? `<span class="pill">${facs.length} risk factor${facs.length === 1 ? "" : "s"}</span>` : ""}${badge(level)}${
+                <span class="harm-meta">${!x.other && !searchOnly ? `<span class="pill">${facs.length} of ${total} risk factors</span>` : ""}${badge(level)}${
               complete ? '<span class="tick" aria-label="Complete">✓</span>' : ""
             }</span>
               </summary>
               <div class="harm-body">
                 <p>${h(x.summary)}</p>
+                ${factorBox}
                 ${
-                  facs.length
-                    ? `<div class="factors-hit"><p class="mini-legend">Your risk factors linked to this harm</p><ul>${facs.map((f) => `<li>${h(f.name)}</li>`).join("")}</ul></div>`
-                    : `<p class="muted small">None of your selected risk factors are linked to this harm. You still need to assess it, but the risk may be lower.</p>`
+                  x.csea && !searchOnly
+                    ? radios({
+                        a,
+                        path: `harms.${x.id}.occurrence`,
+                        label: "Is there evidence it has happened on your service?",
+                        hint: "For example from user reports, moderation, hotline takedown notices (such as the IWF) or law enforcement.",
+                        options: [
+                          { id: "none", name: "No evidence" },
+                          { id: "some", name: "Yes, but not to a significant extent" },
+                          { id: "significant", name: "Yes, to a significant extent" },
+                        ],
+                      }) +
+                      (ind ? `<p class="callout">Ofcom's ${h(x.id === "grooming" ? "Grooming" : x.id === "csam_url" ? "CSAM URLs" : "Image-based CSAM")} Risk Level Table indicates ${badge(ind.level)}. ${h(ind.why)} Ofcom says the tables inform your judgement and shouldn't be applied mechanically.</p>` : "")
+                    : ""
                 }
                 ${checkbox(
                   a,
                   `harms.${x.id}.negligible`,
-                  "There is no realistic possibility of this harm on our service",
-                  "For example, because users can't share the kind of content involved. The risk level will be negligible.",
+                  "It is not possible, or extremely unlikely, for this harm to take place by means of our service",
+                  "The risk level will be negligible. If you have relevant risk factors, you'll normally need comprehensive evidence for this.",
                   `neg-${x.id}`
                 )}
                 ${
@@ -536,26 +650,18 @@
                       a,
                       path: `harms.${x.id}.likelihood`,
                       label: "Likelihood",
-                      hint: "How likely is it that users encounter this content, or that the service is used to commit or facilitate the offence?",
-                      options: [
-                        { id: "low", name: "Low", hint: "Unlikely, few risk factors, little or no evidence of it happening" },
-                        { id: "medium", name: "Medium", hint: "Could happen; some risk factors or occasional evidence" },
-                        { id: "high", name: "High", hint: "Likely, or there is evidence it happens regularly" },
-                      ],
+                      hint: "How likely is it that users encounter this content" + (searchOnly ? "?" : ", or that the service is used to commit or facilitate the offence?"),
+                      options: D.levelGuide.likelihood,
                     })}
                     ${radios({
                       a,
                       path: `harms.${x.id}.impact`,
                       label: "Impact",
                       hint: "How severe would the harm be, how many people could be affected, and how vulnerable are they?",
-                      options: [
-                        { id: "low", name: "Low", hint: "Limited harm to few people" },
-                        { id: "medium", name: "Medium", hint: "Significant harm, or harm to many people" },
-                        { id: "high", name: "High", hint: "Severe or lasting harm, or harm to children or vulnerable users" },
-                      ],
+                      options: D.levelGuide.impact,
                     })}
                   </div>
-                  ${sug ? `<p class="callout">Suggested risk level: ${badge(sug)}</p>` : ""}
+                  ${sug ? `<p class="callout">Suggested risk level: ${badge(sug)}${ind && ORDER[ind.level] > ORDER[higher(e.likelihood, e.impact)] ? " (raised to match Ofcom's risk level table)" : ""}</p>` : ""}
                   ${field({
                     a,
                     path: `harms.${x.id}.override`,
@@ -569,6 +675,7 @@
                 }
                 <fieldset class="field">
                   <legend>Evidence used</legend>
+                  <p class="hint">Use all the core inputs. ${isLarge(a) ? "As a large service, Ofcom generally expects you to use enhanced inputs too." : "Use enhanced inputs as well if you have several risk factors for this harm or aren't confident in your assessment."}</p>
                   <div class="two-col">${evidenceList(a, x.id, "core", "Core inputs")}${evidenceList(a, x.id, "enhanced", "Enhanced inputs")}</div>
                 </fieldset>
                 ${field({
@@ -579,7 +686,7 @@
                   type: "textarea",
                   rows: 3,
                   optional: true,
-                  hint: "Measures already in place that reduce this risk.",
+                  hint: "What controls are in place, which risks they address, how they work, and how they affected the level you've assigned.",
                 })}
                 ${field({
                   a,
@@ -588,7 +695,7 @@
                   label: "Why you've assigned this risk level",
                   type: "textarea",
                   rows: 4,
-                  hint: "Summarise the evidence and your reasoning. This is the core of your written record.",
+                  hint: "Summarise the evidence and your reasoning about likelihood and impact. This is the core of your written record.",
                 })}
               </div>
             </details>`;
@@ -603,10 +710,10 @@
     const warn = reason && st.status === "not_adopted";
     return `<div class="measure${reason ? " recommended" : ""}">
       <div class="measure-head">
-        <h4>${h(m.name)}</h4>
-        ${reason ? `<span class="pill pill-accent">${h(reason)}</span>` : ""}
+        <h4><span class="code">${h(m.code)}</span> ${h(m.name)}</h4>
+        ${reason ? `<span class="pill pill-accent">Recommended for you</span>` : ""}
       </div>
-      <p class="small">${h(m.desc)}</p>
+      <p class="small muted">Applies to: ${h(m.rule)}</p>
       <div class="measure-fields">
         ${field({ a, path: `measures.${m.id}.status`, id: `ms-${m.id}`, label: "Status", type: "select", options: D.statuses })}
         ${field({ a, path: `measures.${m.id}.owner`, id: `mo-${m.id}`, label: "Owner", optional: true })}
@@ -634,19 +741,23 @@
     const other = rows.filter((r) => !r.reason);
     const groupBy = (list) => {
       const g = {};
-      list.forEach((r) => (g[r.m.group] = g[r.m.group] || []).push(r));
+      const both = kinds(a).length > 1;
+      list.forEach((r) => {
+        const key = (both ? (r.m.service === "search" ? "Search: " : "User-to-user: ") : "") + r.m.group;
+        (g[key] = g[key] || []).push(r);
+      });
       return g;
     };
     const renderGroups = (list) =>
       Object.entries(groupBy(list))
         .map(([name, items]) => `<section class="measure-group"><h3>${h(name)}</h3>${items.map((r) => measureRow(a, r.m, r.reason)).join("")}</section>`)
         .join("");
-    const unassessed = D.harms.filter((x) => !harmLevel(a.harms[x.id])).length;
+    const unassessed = D.harms.filter((x) => !harmLevelOf(a, x.id)).length;
     const done = rec.filter((r) => (a.measures[r.m.id] || {}).status).length;
     return `
       <h2>Decide your safety measures</h2>
-      <p class="lede">Based on your answers, these measures from Ofcom's Illegal Content Codes of Practice are recommended for your service.
-      Following the Codes is one way to show you meet your safety duties. Record what you have in place, what you plan, and anything you do differently.</p>
+      <p class="lede">Based on your answers, these measures from Ofcom's Illegal Content Codes of Practice apply to your service.
+      If you implement the measures recommended to you, you're treated as complying with the related duties. You can use alternative measures instead, but you must record what they are and how they meet your duties.</p>
       <p class="callout">${isLarge(a) ? "Large service" : "Not a large service"} · ${isMulti(a) ? "Multi-risk" : "Not multi-risk"} · <strong>${done} of ${rec.length}</strong> recommended measures have a status.</p>
       ${unassessed ? `<p class="callout callout-warn">${unassessed} harm${unassessed === 1 ? " hasn't" : "s haven't"} been given a risk level yet, so this list may be incomplete. <a href="#harms-${a.id}">Finish assessing the risks</a>.</p>` : ""}
       ${renderGroups(rec)}
@@ -676,28 +787,41 @@
       </section>`;
   }
 
+  const TRIGGERS = [
+    ["significant_change", "Before making a significant change to the service (a legal duty: carry out a new assessment before the change)"],
+    ["annual", "At least every 12 months, as Ofcom recommends"],
+    ["profiles", "When Ofcom makes a significant change to its Risk Profiles that affects the service"],
+    ["evidence", "When new evidence suggests the risk has changed, such as a serious incident, a rise in a kind of illegal content, or changing user behaviour"],
+    ["growth", "If user numbers cross a threshold in the Codes (700,000 or 7 million monthly UK users)"],
+  ];
   function viewReview(a) {
     const r = a.review;
-    const triggers = [
-      ["significant_change", "Before making a significant change to the service's design or operation"],
-      ["profiles", "When Ofcom makes a significant change to its Risk Profiles that affects the service"],
-      ["incident", "After a serious incident or a sharp rise in a kind of illegal content"],
-      ["growth", "If user numbers grow so the service becomes 'large'"],
-      ["annual", "At least once a year"],
-    ];
     return `
       <h2>Record, sign off and plan your review</h2>
-      <p class="lede">You must keep a written record of your risk assessment and keep it up to date.
-      Record who approved it and when you'll review it.</p>
+      <p class="lede">You must keep a written record of your risk assessment and take steps to keep it up to date.
+      Keep earlier versions too: Ofcom expects records that are no longer current to be kept for at least three years.</p>
       <div class="form-grid">
-        ${field({ a, path: "review.approver", label: "Approved by", hint: "Name and role of the person accountable, for example the named person for illegal content safety." })}
+        ${field({ a, path: "review.responsible", label: "Named person responsible for the risk assessment", hint: "Name and role." })}
+        ${field({ a, path: "review.completedOn", label: "Date the assessment was completed", type: "date" })}
+        ${field({ a, path: "review.approver", label: "Approved by", hint: "Name and role, for example the person accountable for illegal content safety duties." })}
         ${field({ a, path: "review.approvedOn", label: "Date approved", type: "date", rerender: true })}
-        ${field({ a, path: "review.nextReview", label: "Next review date", type: "date", hint: r.approvedOn && !r.nextReview ? "Most services review every 12 months." : "" })}
+        ${field({ a, path: "review.nextReview", label: "Next review date", type: "date", hint: "Ofcom recommends reviewing at least every 12 months." })}
       </div>
       ${r.approvedOn && !r.nextReview ? `<button class="btn btn-secondary btn-small" data-action="set-review" data-date="${addMonths(r.approvedOn, 12)}">Set to ${fmtDate(addMonths(r.approvedOn, 12))}</button>` : ""}
       <fieldset class="field">
-        <legend>What will trigger an earlier review?</legend>
-        ${triggers.map(([id, label]) => checkbox(a, "review.triggers." + id, label)).join("")}
+        <legend>When will you review or redo the assessment?</legend>
+        ${TRIGGERS.map(([id, label]) => checkbox(a, "review.triggers." + id, label)).join("")}
+      </fieldset>
+      ${field({
+        a,
+        path: "review.policy",
+        label: "How you keep the assessment up to date",
+        type: "textarea",
+        hint: "Your policy for reviewing it: who does it, how new evidence is collected, and how changes to the service are checked for significance.",
+      })}
+      <fieldset class="field">
+        <legend>Governance</legend>
+        ${checkbox(a, "review.reported", "The findings have been reported and recorded through our governance channels")}
       </fieldset>
       ${field({
         a,
@@ -721,13 +845,8 @@
     const custom = (a.customMeasures || []).filter((c) => c.name);
     const factors = activeFactors(a);
     const triggers = Object.entries(a.review.triggers || {}).filter(([, v]) => v);
-    const triggerNames = {
-      significant_change: "Before a significant change to the service",
-      profiles: "When Ofcom changes its Risk Profiles in a relevant way",
-      incident: "After a serious incident or sharp rise in illegal content",
-      growth: "If the service becomes 'large'",
-      annual: "At least once a year",
-    };
+    const triggerNames = Object.fromEntries(TRIGGERS);
+    triggerNames.incident = "After a serious incident or sharp rise in illegal content";
     const evNames = Object.fromEntries([...D.evidence.core, ...D.evidence.enhanced].map((e) => [e.id, e.name]));
     return `
       <div class="report-actions no-print">
@@ -752,14 +871,17 @@
           <dt>Type</dt><dd>${kinds(a).map((k) => (k === "u2u" ? "User-to-user" : "Search")).join(" and ")}</dd>
           <dt>Monthly active UK users</dt><dd>${h(p.ukUsers) || "<em>Not given</em>"}</dd>
           <dt>Children likely to use it</dt><dd>${h({ yes: "Yes", no: "No", unsure: "Not sure" }[p.children] || "Not given")}</dd>
-          <dt>Classification</dt><dd>${isLarge(a) ? "Large service" : "Not a large service"}; ${isMulti(a) ? `multi-risk (${multiRiskCount(a)} harms at medium or high)` : "not multi-risk"}</dd>
+          <dt>Classification</dt><dd>${isLarge(a) ? "Large service" : "Not a large service"}; ${isMulti(a) ? `multi-risk (${h(multiRiskKinds(a).join(", "))})` : "not multi-risk"}${a.profile.category && a.profile.category !== "none" ? "; Category " + h(a.profile.category) : ""}</dd>
           <dt>Assessed by</dt><dd>${h(p.assessor) || "<em>Not given</em>"}</dd>
           <dt>Started</dt><dd>${h(fmtDate(p.startDate))}</dd>
         </dl>
 
         <h3>2. Risk factors</h3>
-        ${factors.length ? `<ul class="columns">${factors.map((f) => `<li>${h(f.name)}</li>`).join("")}</ul>` : "<p><em>No risk factors selected.</em></p>"}
-        ${a.factorsNotes ? `<p><strong>Other characteristics:</strong> ${h(a.factorsNotes)}</p>` : ""}
+        <p>We consulted Ofcom's ${kinds(a).map((k) => (k === "u2u" ? "U2U" : "Search")).join(" and ")} Risk Profile${kinds(a).length > 1 ? "s" : ""}${a.factorsReviewed ? "" : " <em>(not yet confirmed)</em>"}. Specific risk factors that apply:</p>
+        ${factors.length ? `<ul class="columns">${factors.map((f) => `<li>${h(f.ref + ". " + f.name)}</li>`).join("")}</ul>` : "<p><em>None selected.</em></p>"}
+        <h4>General risk factors</h4>
+        <dl class="dl">${D.generalFactors.map((g) => `<dt>${h(g.name)}</dt><dd>${h((a.general || {})[g.id]) || "<em>Not recorded</em>"}</dd>`).join("")}</dl>
+        ${a.factorsNotes ? `<p><strong>Other characteristics considered:</strong> ${h(a.factorsNotes)}</p>` : ""}
 
         <h3>3. Risk levels</h3>
         <table class="table">
@@ -781,7 +903,8 @@
             return `<section class="report-harm">
               <h4>${h(x.name)} ${badge(lv[x.id])}</h4>
               <p>${h(e.rationale) || "<em>No reasoning recorded.</em>"}</p>
-              ${facs.length ? `<p class="small"><strong>Risk factors:</strong> ${facs.map((f) => h(f.name)).join("; ")}</p>` : ""}
+              ${facs.length ? `<p class="small"><strong>Risk factors (${facs.length} of ${profileCount(x.id)}):</strong> ${facs.map((f) => h(f.ref + ". " + f.name)).join("; ")}</p>` : ""}
+              ${x.csea && cseaIndicative(a, x.id) ? `<p class="small"><strong>Ofcom risk level table indicates:</strong> ${h(levelName[cseaIndicative(a, x.id).level])}. ${h(cseaIndicative(a, x.id).why)}</p>` : ""}
               ${ev.length ? `<p class="small"><strong>Evidence:</strong> ${ev.map(h).join("; ")}</p>` : ""}
               ${e.controls ? `<p class="small"><strong>Existing controls:</strong> ${h(e.controls)}</p>` : ""}
             </section>`;
@@ -790,30 +913,34 @@
 
         <h3>5. Safety measures</h3>
         <table class="table">
-          <thead><tr><th scope="col">Measure</th><th scope="col">Why</th><th scope="col">Status</th><th scope="col">Owner</th><th scope="col">Target</th></tr></thead>
+          <thead><tr><th scope="col">Code</th><th scope="col">Measure</th><th scope="col">Status</th><th scope="col">Owner</th><th scope="col">Target</th></tr></thead>
           <tbody>
             ${adopted
               .map((r) => {
                 const st = a.measures[r.m.id] || {};
-                return `<tr><th scope="row">${h(r.m.name)}${st.notes ? `<div class="small muted">${h(st.notes)}</div>` : ""}</th><td class="small">${h(r.reason || "Adopted voluntarily")}</td><td>${h(statusName[st.status] || "Not recorded")}</td><td>${h(st.owner)}</td><td>${h(fmtDate(st.due))}</td></tr>`;
+                return `<tr><td class="nowrap">${h(r.m.code)}</td><th scope="row">${h(r.m.name)}${r.reason ? "" : ' <span class="small muted">(adopted voluntarily)</span>'}${st.notes ? `<div class="small muted">${h(st.notes)}</div>` : ""}</th><td>${h(statusName[st.status] || "Not recorded")}</td><td>${h(st.owner)}</td><td>${h(fmtDate(st.due))}</td></tr>`;
               })
               .join("")}
             ${custom
-              .map((c) => `<tr><th scope="row">${h(c.name)}${c.desc ? `<div class="small muted">${h(c.desc)}</div>` : ""}</th><td class="small">Own measure</td><td>${h(statusName[c.status] || "Not recorded")}</td><td>${h(c.owner)}</td><td></td></tr>`)
+              .map((c) => `<tr><td>Own</td><th scope="row">${h(c.name)}${c.desc ? `<div class="small muted">${h(c.desc)}</div>` : ""}</th><td>${h(statusName[c.status] || "Not recorded")}</td><td>${h(c.owner)}</td><td></td></tr>`)
               .join("")}
           </tbody>
         </table>
 
         <h3>6. Sign-off and review</h3>
         <dl class="dl">
+          <dt>Named person responsible</dt><dd>${h(a.review.responsible) || "<em>Not recorded</em>"}</dd>
+          <dt>Completed by</dt><dd>${h(p.assessor) || "<em>Not recorded</em>"}</dd>
+          <dt>Date completed</dt><dd>${h(fmtDate(a.review.completedOn)) || "<em>–</em>"}</dd>
           <dt>Approved by</dt><dd>${h(a.review.approver) || "<em>Not approved</em>"}</dd>
           <dt>Date approved</dt><dd>${h(fmtDate(a.review.approvedOn)) || "<em>–</em>"}</dd>
           <dt>Next review</dt><dd>${h(fmtDate(a.review.nextReview)) || "<em>–</em>"}</dd>
           <dt>Review triggers</dt><dd>${triggers.length ? triggers.map(([k]) => h(triggerNames[k])).join("; ") : "<em>None recorded</em>"}</dd>
-          ${a.review.governance ? `<dt>Governance reporting</dt><dd>${h(a.review.governance)}</dd>` : ""}
+          <dt>Keeping it up to date</dt><dd>${h(a.review.policy) || "<em>Not recorded</em>"}</dd>
+          <dt>Reported through governance</dt><dd>${a.review.reported ? "Yes" : "<em>Not confirmed</em>"}${a.review.governance ? ". " + h(a.review.governance) : ""}</dd>
           ${a.review.notes ? `<dt>Notes</dt><dd>${h(a.review.notes)}</dd>` : ""}
         </dl>
-        <p class="small muted report-foot">Record generated ${h(fmtDate(new Date().toISOString()))}. Prepared with reference to Ofcom's Risk Assessment Guidance, Risk Profiles and Illegal Content Codes of Practice under the Online Safety Act 2023.</p>
+        <p class="small muted report-foot">Record generated ${h(fmtDate(new Date().toISOString()))}. Prepared with reference to ${kinds(a).map((k) => h(k === "u2u" ? D.SOURCES.icu : D.SOURCES.ics)).concat([h(D.SOURCES.rag), h(D.SOURCES.rkr)]).join("; ")}.</p>
       </article>`;
   }
 
@@ -887,8 +1014,7 @@
     else val = el.value;
     setPath(a, path, val);
     // Side effects
-    if (path === "profile.children" && (val === "yes" || val === "unsure")) a.factors.u_children = true;
-    if (path === "profile.ukUsers") a.factors.u_large = isLarge(a) || a.factors.u_large;
+    if (path === "profile.children" && (val === "yes" || val === "unsure")) a.factors["2"] = true;
     touch(a);
     const needsRerender = el.hasAttribute("data-rerender") || el.tagName === "SELECT";
     if (needsRerender && e.type === "change") render();
@@ -1138,7 +1264,7 @@
       const data = JSON.parse(text);
       const a = data && data.format === "osra" ? data.assessment : data;
       if (!a || typeof a !== "object" || !a.profile || !a.harms) throw new Error("bad");
-      const fresh = Object.assign(blankAssessment(), a);
+      const fresh = Object.assign(blankAssessment(), migrate(a));
       if (store[fresh.id]) {
         // Keep the existing one and add the import alongside it.
         fresh.id = uid();
@@ -1175,16 +1301,46 @@
       assessor: "A. Example, Head of Community",
       startDate: today(),
     };
-    ["t_forum", "u_children", "f_profiles", "f_anonymous", "f_groups", "f_dm", "f_images", "f_links", "f_comments", "f_search", "b_early"].forEach((id) => (a.factors[id] = true));
+    ["1e", "2", "3a", "3b", "4b", "5b", "5d", "5e", "7a", "7b"].forEach((id) => (a.factors[id] = true));
     a.factorsReviewed = true;
+    a.general = {
+      demographics: "Mostly adults aged 40 and over, but some teenage members join with their parents. We don't collect protected characteristics.",
+      business: "Funded by member donations. No advertising, boosted posts or engagement-based ranking.",
+      commercial: "Run by two part-time staff and around 15 volunteer moderators, so our capacity to moderate is limited.",
+    };
     a.harms = {
       harassment: { likelihood: "medium", impact: "medium", rationale: "We receive a few reports of abusive messages each month, mostly in private messages. Users can be anonymous and can message anyone.", evidence: { e_profile: true, e_complaints: true }, controls: "Volunteer moderators; users can report posts." },
       grooming: { likelihood: "medium", impact: "high", rationale: "Some users may be under 18 and anyone can send a private message to anyone. No incidents reported, but the risk factors are present and the impact would be severe.", evidence: { e_profile: true, e_userdata: true } },
       csam_image: { likelihood: "low", impact: "high", rationale: "Users can upload images. No incidents in the last three years; images are visible to moderators.", evidence: { e_profile: true, e_incidents: true } },
-      immigration: { negligible: true, rationale: "No marketplace, listings or payments. The forum's niche topic and moderated threads give no realistic route for this harm." },
+      immigration: { likelihood: "low", impact: "low", rationale: "We have several linked risk factors, but no marketplace or listings, no reports of this content, and every thread is visible to moderators.", evidence: { e_profile: true, e_complaints: true } },
     };
     return a;
   }
+
+  // Older saves used different ids for risk factors and harms.
+  const OLD_FACTORS = {
+    t_social: "1a", t_messaging: "1b", t_gaming: "1c", t_adult: "1d", t_forum: "1e", t_marketplace: "1f", t_filesharing: "1g",
+    u_children: "2", f_profiles: "3a", f_anonymous: "3b", f_connections: "4a", f_groups: "4b",
+    f_livestream: "5a", f_dm: "5b", f_encrypted: "5c", f_comments: "5d", f_images: "5e", f_location: "5f", f_reposting: "5g",
+    f_sale: "6", f_search: "7a", f_links: "7b", f_recommender: "8c", f_suggestions: "8n",
+    s_general: "s1a", s_vertical: "s1b", s_predictive: "s3a", s_image: "s3b",
+  };
+  function migrate(a) {
+    if (!a || (a.version || 1) >= 2) return a;
+    const f = {};
+    Object.entries(a.factors || {}).forEach(([k, v]) => {
+      if (v && OLD_FACTORS[k]) f[OLD_FACTORS[k]] = true;
+      else if (v && !k.includes("_")) f[k] = true;
+    });
+    a.factors = f;
+    if (a.harms && a.harms.self_harm && !a.harms.suicide) a.harms.suicide = a.harms.self_harm;
+    if (a.harms) delete a.harms.self_harm;
+    a.questions = a.questions || {};
+    a.general = a.general || {};
+    a.version = 2;
+    return a;
+  }
+  Object.values(store).forEach(migrate);
 
   window.addEventListener("hashchange", () => render());
   document.addEventListener("click", (e) => {

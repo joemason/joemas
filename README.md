@@ -5,9 +5,9 @@ A free, browser-based tool that helps organisations complete their **illegal con
 ## What it does
 
 1. **Your service**: who you are, the service type (user-to-user and/or search), UK user numbers and whether children use it.
-2. **Risk factors**: tick the features from Ofcom's Risk Profiles that apply (service type, messaging, livestreaming, recommender systems and so on).
-3. **Assess the risks**: for each kind of priority illegal harm (CSEA split into grooming, image-based CSAM and CSAM URLs) plus other illegal content, record likelihood, impact, evidence, existing controls and reasoning. A risk level is suggested and can be overridden.
-4. **Safety measures**: works out whether the service is *large* (more than 7m monthly UK users) and *multi-risk* (medium or high for 2+ harms), then shows which Codes of Practice measures are recommended and why. Record status, owner and target date, or add your own measures.
+2. **Risk factors**: Ofcom's U2U and Search Risk Profile questions (1a to 8), the three general risk factors, and the questions Ofcom's CSEA risk level tables need.
+3. **Assess the risks**: for each kind of priority illegal harm (CSEA split into grooming, image-based CSAM and CSAM URLs) plus other illegal content, record likelihood, impact, evidence, existing controls and reasoning. The tool shows which of Ofcom's linked risk factors apply, what the CSEA risk level tables indicate, and suggests the higher of likelihood and impact, as Ofcom advises. The level can be overridden.
+4. **Safety measures**: works out whether the service is *large* (more than 7m monthly UK users) and *multi-risk* (medium or high for 2+ harms), then shows which Codes of Practice measures (ICU and ICS codes) apply, using each measure's application conditions. Record status, owner and target date, or add your own measures.
 5. **Record and review**: sign-off, next review date and review triggers.
 6. **Report**: a printable written record (print or save as PDF).
 
@@ -30,6 +30,10 @@ Then open http://localhost:8000. It can be hosted on any static host (Cloudflare
 - `js/data.js`: reference content: harms, risk factors, evidence inputs and measures, with the rules for when each measure is recommended
 - `js/app.js`: routing, state, views and the report
 
+## Sources
+
+The content follows Ofcom's Risk Assessment Guidance and Risk Profiles v2.0, the Illegal content Codes of Practice for user-to-user and search services (autumn 2026) and the Record-Keeping and Review Guidance v3.0. See `docs/content-review.md` for what was checked and the judgement calls made.
+
 ## Important
 
-This tool gives guidance, not legal advice, and is not made or endorsed by Ofcom. The harm-to-risk-factor mappings and measure rules in `js/data.js` are a practical summary. Check them against Ofcom's current Risk Assessment Guidance, Risk Profiles and Codes of Practice before relying on them.
+This tool gives guidance, not legal advice, and is not made or endorsed by Ofcom. Ofcom updates its documents, so check `docs/content-review.md` for the versions this tool follows.
