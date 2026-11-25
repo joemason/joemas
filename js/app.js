@@ -6,6 +6,12 @@
   const STORE_KEY = "osra.assessments.v1";
   const LARGE_THRESHOLD = 7000000; // average monthly active UK users
   const app = document.getElementById("app");
+  let framed = false;
+  try {
+    framed = window.self !== window.top;
+  } catch (e) {
+    framed = true;
+  }
 
   const STEPS = [
     { id: "service", name: "Your service", short: "Service" },
@@ -281,7 +287,7 @@
         const done = stepDone(a, s.id);
         const cur = s.id === current;
         return `<li class="${cur ? "current" : ""}${done ? " done" : ""}">
-          <a href="#/a/${a.id}/${s.id}"${cur ? ' aria-current="step"' : ""}>
+          <a href="#${s.id}-${a.id}"${cur ? ' aria-current="step"' : ""}>
             <span class="num" aria-hidden="true">${done ? "✓" : i + 1}</span>
             <span class="label">${h(s.short)}</span>
             ${done ? '<span class="sr-only">(complete)</span>' : ""}
@@ -294,7 +300,7 @@
     const prev = STEPS[i - 1];
     const next = STEPS[i + 1];
     return `<div class="pager">
-      ${prev ? `<a class="btn btn-secondary" href="#/a/${a.id}/${prev.id}">← ${h(prev.name)}</a>` : "<span></span>"}
+      ${prev ? `<a class="btn btn-secondary" href="#${prev.id}-${a.id}">← ${h(prev.name)}</a>` : "<span></span>"}
       ${next ? `<button class="btn" data-action="next" data-next="${next.id}">Save and continue: ${h(next.name)} →</button>` : ""}
     </div>`;
   }
@@ -339,7 +345,7 @@
       <section class="panel">
         <div class="panel-head">
           <h2>Your assessments</h2>
-          <label class="btn btn-secondary btn-file">Import a saved file<input type="file" accept="application/json,.json" data-action="import" class="sr-only"></label>
+          <button class="btn btn-secondary" data-action="open-import">Import</button>
         </div>
         ${
           list.length
@@ -348,13 +354,13 @@
                   const pct = progress(a);
                   return `<li class="card">
                     <div class="card-main">
-                      <h3><a href="#/a/${a.id}/service">${h(a.profile.serviceName || "Untitled service")}</a></h3>
+                      <h3><a href="#service-${a.id}">${h(a.profile.serviceName || "Untitled service")}</a></h3>
                       <p class="muted">${h(a.profile.orgName || "No organisation name")} · Updated ${h(fmtDate(a.updatedAt))}</p>
                       <div class="meter" role="progressbar" aria-label="Progress" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>
                       <p class="small muted">${pct}% complete</p>
                     </div>
                     <div class="card-actions">
-                      <a class="btn btn-small" href="#/a/${a.id}/${pct === 100 ? "report" : "service"}">${pct === 100 ? "View report" : "Continue"}</a>
+                      <a class="btn btn-small" href="#${pct === 100 ? "report" : "service"}-${a.id}">${pct === 100 ? "View report" : "Continue"}</a>
                       <button class="btn btn-small btn-secondary" data-action="export" data-id="${a.id}">Export</button>
                       <button class="btn btn-small btn-ghost" data-action="duplicate" data-id="${a.id}">Duplicate</button>
                       <button class="btn btn-small btn-danger" data-action="delete" data-id="${a.id}">Delete</button>
@@ -642,7 +648,7 @@
       <p class="lede">Based on your answers, these measures from Ofcom's Illegal Content Codes of Practice are recommended for your service.
       Following the Codes is one way to show you meet your safety duties. Record what you have in place, what you plan, and anything you do differently.</p>
       <p class="callout">${isLarge(a) ? "Large service" : "Not a large service"} · ${isMulti(a) ? "Multi-risk" : "Not multi-risk"} · <strong>${done} of ${rec.length}</strong> recommended measures have a status.</p>
-      ${unassessed ? `<p class="callout callout-warn">${unassessed} harm${unassessed === 1 ? " hasn't" : "s haven't"} been given a risk level yet, so this list may be incomplete. <a href="#/a/${a.id}/harms">Finish assessing the risks</a>.</p>` : ""}
+      ${unassessed ? `<p class="callout callout-warn">${unassessed} harm${unassessed === 1 ? " hasn't" : "s haven't"} been given a risk level yet, so this list may be incomplete. <a href="#harms-${a.id}">Finish assessing the risks</a>.</p>` : ""}
       ${renderGroups(rec)}
       ${
         other.length
@@ -725,11 +731,13 @@
     const evNames = Object.fromEntries([...D.evidence.core, ...D.evidence.enhanced].map((e) => [e.id, e.name]));
     return `
       <div class="report-actions no-print">
-        ${missing.length ? `<p class="callout callout-warn">Some steps aren't finished: ${missing.map((s) => `<a href="#/a/${a.id}/${s.id}">${h(s.name)}</a>`).join(", ")}. You can still print a draft.</p>` : `<p class="callout callout-ok">All steps are complete.</p>`}
+        ${missing.length ? `<p class="callout callout-warn">Some steps aren't finished: ${missing.map((s) => `<a href="#${s.id}-${a.id}">${h(s.name)}</a>`).join(", ")}. You can still copy a draft.</p>` : `<p class="callout callout-ok">All steps are complete.</p>`}
         <div class="actions">
-          <button class="btn" data-action="print">Print or save as PDF</button>
-          <button class="btn btn-secondary" data-action="export" data-id="${a.id}">Export as a file</button>
+          <button class="btn" data-action="copy-report">Copy report</button>
+          ${framed ? "" : `<button class="btn btn-secondary" data-action="print">Print or save as PDF</button>`}
+          <button class="btn btn-secondary" data-action="export" data-id="${a.id}">Export</button>
         </div>
+        <p class="small muted">Copy the report and paste it into Word or Google Docs to save, share or print it.</p>
       </div>
       <article class="report">
         <header>
@@ -810,17 +818,18 @@
   }
 
   function viewNotFound() {
-    return `<section class="panel"><h1>Assessment not found</h1><p>It may have been deleted, or saved in a different browser.</p><p><a class="btn" href="#/">Go to your assessments</a></p></section>`;
+    return `<section class="panel"><h1>Assessment not found</h1><p>It may have been deleted, or saved in a different browser.</p><p><a class="btn" href="#assessments">Go to your assessments</a></p></section>`;
   }
 
   // ---------- routing ----------
   function route() {
-    const parts = location.hash.replace(/^#\/?/, "").split("/");
-    if (parts[0] === "a" && parts[1]) {
-      const a = store[parts[1]];
+    // Hashes look like #harms-<assessment id>. Plain names only, so the
+    // page also works where hosts only pass simple #names through.
+    const m = location.hash.replace(/^#/, "").match(/^(service|factors|harms|measures|review|report)-([A-Za-z0-9-]+)$/);
+    if (m) {
+      const a = store[m[2]];
       if (!a) return { view: "notfound" };
-      const step = STEPS.find((s) => s.id === parts[2]) ? parts[2] : "service";
-      return { view: "step", a, step };
+      return { view: "step", a, step: m[1] };
     }
     return { view: "home" };
   }
@@ -891,7 +900,6 @@
   });
   app.addEventListener("change", (e) => {
     const el = e.target;
-    if (el.getAttribute("data-action") === "import") return importFile(el);
     if (el.type === "radio" || el.type === "checkbox" || el.tagName === "SELECT" || el.hasAttribute("data-rerender")) onValue(e);
   });
   app.addEventListener(
@@ -917,14 +925,14 @@
         const n = blankAssessment();
         store[n.id] = n;
         persistNow();
-        location.hash = `#/a/${n.id}/service`;
+        location.hash = `#service-${n.id}`;
         break;
       }
       case "example": {
         const n = exampleAssessment();
         store[n.id] = n;
         persistNow();
-        location.hash = `#/a/${n.id}/harms`;
+        location.hash = `#harms-${n.id}`;
         break;
       }
       case "next":
@@ -932,11 +940,11 @@
           if (route().step === "factors") a.factorsReviewed = true;
           touch(a);
           persistNow();
-          location.hash = `#/a/${a.id}/${btn.getAttribute("data-next")}`;
+          location.hash = `#${btn.getAttribute("data-next")}-${a.id}`;
         }
         break;
       case "export":
-        exportFile(store[btn.getAttribute("data-id")]);
+        showExport(store[btn.getAttribute("data-id")]);
         break;
       case "duplicate": {
         const src = store[btn.getAttribute("data-id")];
@@ -952,12 +960,13 @@
       }
       case "delete": {
         const id = btn.getAttribute("data-id");
-        const name = (store[id].profile.serviceName || "this assessment");
-        if (confirm(`Delete "${name}"? This can't be undone. Export it first if you want to keep a copy.`)) {
-          delete store[id];
-          persistNow();
-          render();
-        }
+        const name = store[id].profile.serviceName || "this assessment";
+        openModal(`<h2 id="modal-title">Delete ${h(name)}?</h2>
+          <p>This can't be undone. Export it first if you want to keep a copy.</p>
+          <div class="actions">
+            <button class="btn btn-delete" data-modal-action="confirm-delete" data-id="${h(id)}">Delete assessment</button>
+            <button class="btn btn-secondary" data-modal-close>Cancel</button>
+          </div>`);
         break;
       }
       case "add-note":
@@ -995,12 +1004,73 @@
       case "print":
         window.print();
         break;
+      case "copy-report":
+        copyReport(btn);
+        break;
+      case "open-import":
+        showImport();
+        break;
     }
   });
 
-  function exportFile(a) {
+  // ---------- dialogs ----------
+  const modal = document.createElement("dialog");
+  modal.className = "modal";
+  modal.setAttribute("aria-labelledby", "modal-title");
+  document.body.appendChild(modal);
+  function openModal(html) {
+    modal.innerHTML = `<div class="modal-inner">${html}</div>`;
+    if (!modal.open) modal.showModal();
+    const first = modal.querySelector("[autofocus], textarea, input, button");
+    if (first) first.focus();
+  }
+  function closeModal() {
+    if (modal.open) modal.close();
+  }
+  function showMessage(title, text) {
+    openModal(`<h2 id="modal-title">${h(title)}</h2><p>${h(text)}</p><div class="actions"><button class="btn" data-modal-close>OK</button></div>`);
+  }
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) return closeModal(); // backdrop
+    const close = e.target.closest("[data-modal-close]");
+    if (close) return closeModal();
+    const btn = e.target.closest("[data-modal-action]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-modal-action");
+    if (action === "confirm-delete") {
+      delete store[btn.getAttribute("data-id")];
+      persistNow();
+      closeModal();
+      render();
+    } else if (action === "download") {
+      downloadFile(store[btn.getAttribute("data-id")]);
+    } else if (action === "copy-export") {
+      copyText(document.getElementById("export-text").value, btn, document.getElementById("export-text"));
+    } else if (action === "import-text") {
+      importText(document.getElementById("import-text").value);
+    }
+  });
+  modal.addEventListener("change", (e) => {
+    if (e.target.id === "import-file") importFile(e.target);
+  });
+
+  function exportJson(a) {
+    return JSON.stringify({ format: "osra", version: 1, assessment: a }, null, 2);
+  }
+  function showExport(a) {
     if (!a) return;
-    const blob = new Blob([JSON.stringify({ format: "osra", version: 1, assessment: a }, null, 2)], { type: "application/json" });
+    openModal(`<h2 id="modal-title">Export ${h(a.profile.serviceName || "assessment")}</h2>
+      <p>Save a copy to keep it safe, move it to another device or share it with a colleague. Bring it back with <strong>Import</strong>.</p>
+      <div class="actions">
+        <button class="btn" data-modal-action="download" data-id="${h(a.id)}">Download file</button>
+        <button class="btn btn-secondary" data-modal-action="copy-export">Copy to clipboard</button>
+      </div>
+      <label for="export-text" class="mini-legend">Or copy this text and save it as a .json file</label>
+      <textarea id="export-text" rows="6" readonly class="code">${h(exportJson(a))}</textarea>
+      <div class="actions"><button class="btn btn-ghost" data-modal-close>Close</button></div>`);
+  }
+  function downloadFile(a) {
+    const blob = new Blob([exportJson(a)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const safe = (a.profile.serviceName || "assessment").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
@@ -1011,28 +1081,84 @@
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+  function flash(btn, text) {
+    if (!btn) return;
+    const old = btn.textContent;
+    btn.textContent = text;
+    setTimeout(() => (btn.textContent = old), 2000);
+  }
+  function copyText(text, btn, fallbackEl) {
+    const fallback = () => {
+      if (fallbackEl) {
+        fallbackEl.focus();
+        fallbackEl.select();
+        flash(btn, "Press Ctrl+C to copy");
+      }
+    };
+    try {
+      navigator.clipboard.writeText(text).then(() => flash(btn, "Copied"), fallback);
+    } catch (e) {
+      fallback();
+    }
+  }
+  function copyReport(btn) {
+    const el = app.querySelector(".report");
+    if (!el) return;
+    const html = `<meta charset="utf-8">${el.outerHTML}`;
+    const text = el.innerText;
+    try {
+      if (window.ClipboardItem) {
+        const item = new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([text], { type: "text/plain" }),
+        });
+        navigator.clipboard.write([item]).then(
+          () => flash(btn, "Copied: paste it into a document"),
+          () => copyText(text, btn)
+        );
+      } else copyText(text, btn);
+    } catch (e) {
+      copyText(text, btn);
+    }
+  }
 
+  function showImport() {
+    openModal(`<h2 id="modal-title">Import an assessment</h2>
+      <p>Choose a file exported from this tool, or paste its contents below.</p>
+      <div class="field"><label for="import-file">File</label><input type="file" id="import-file" accept="application/json,.json"></div>
+      <div class="field"><label for="import-text">Or paste the text</label><textarea id="import-text" rows="5" class="code"></textarea></div>
+      <p class="error" id="import-error" role="alert"></p>
+      <div class="actions">
+        <button class="btn" data-modal-action="import-text">Import pasted text</button>
+        <button class="btn btn-secondary" data-modal-close>Cancel</button>
+      </div>`);
+  }
+  function importText(text) {
+    try {
+      const data = JSON.parse(text);
+      const a = data && data.format === "osra" ? data.assessment : data;
+      if (!a || typeof a !== "object" || !a.profile || !a.harms) throw new Error("bad");
+      const fresh = Object.assign(blankAssessment(), a);
+      if (store[fresh.id]) {
+        // Keep the existing one and add the import alongside it.
+        fresh.id = uid();
+        fresh.profile.serviceName = (fresh.profile.serviceName || "Untitled service") + " (imported)";
+      }
+      store[fresh.id] = fresh;
+      persistNow();
+      closeModal();
+      location.hash = `#service-${fresh.id}`;
+      render();
+    } catch (err) {
+      const e = document.getElementById("import-error");
+      if (e) e.textContent = "That couldn't be read. Use a file or text exported from this tool.";
+    }
+  }
   function importFile(input) {
     const file = input.files && input.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        const a = data && data.format === "osra" ? data.assessment : data;
-        if (!a || typeof a !== "object" || !a.profile || !a.harms) throw new Error("bad");
-        const fresh = Object.assign(blankAssessment(), a);
-        if (store[fresh.id] && !confirm("You already have this assessment on this device. Replace it with the imported version?")) {
-          fresh.id = uid();
-        }
-        store[fresh.id] = fresh;
-        persistNow();
-        location.hash = `#/a/${fresh.id}/service`;
-        render();
-      } catch (err) {
-        alert("That file couldn't be read. Choose a file exported from this tool.");
-      }
-    };
+    reader.onload = () => importText(reader.result);
     reader.readAsText(file);
   }
 
@@ -1061,6 +1187,15 @@
   }
 
   window.addEventListener("hashchange", () => render());
+  document.addEventListener("click", (e) => {
+    const skip = e.target.closest(".skip-link");
+    if (skip) {
+      e.preventDefault();
+      const h1 = app.querySelector("h1, h2");
+      (h1 || app).setAttribute("tabindex", "-1");
+      (h1 || app).focus();
+    }
+  });
   if (!storageOk) {
     const b = document.getElementById("storage-warning");
     if (b) b.hidden = false;
