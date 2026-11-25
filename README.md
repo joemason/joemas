@@ -6,7 +6,7 @@ A free, browser-based tool that helps organisations complete their **illegal con
 
 1. **Your service**: who you are, the service type (user-to-user and/or search), UK user numbers and whether children use it.
 2. **Risk factors**: tick the features from Ofcom's Risk Profiles that apply (service type, messaging, livestreaming, recommender systems and so on).
-3. **Assess the risks**: for each of the 17 kinds of priority illegal harm (CSEA split into grooming, image-based CSAM and CSAM URLs) plus other illegal content, record likelihood, impact, evidence, existing controls and reasoning. A risk level is suggested and can be overridden.
+3. **Assess the risks**: for each kind of priority illegal harm (CSEA split into grooming, image-based CSAM and CSAM URLs) plus other illegal content, record likelihood, impact, evidence, existing controls and reasoning. A risk level is suggested and can be overridden.
 4. **Safety measures**: works out whether the service is *large* (more than 7m monthly UK users) and *multi-risk* (medium or high for 2+ harms), then shows which Codes of Practice measures are recommended and why. Record status, owner and target date, or add your own measures.
 5. **Record and review**: sign-off, next review date and review triggers.
 6. **Report**: a printable written record (print or save as PDF).

@@ -3,6 +3,13 @@
  *
  * Based on Ofcom's Risk Assessment Guidance and Risk Profiles, and the
  * Illegal Content Codes of Practice under the Online Safety Act 2023.
+ *
+ * Content status (see docs/content-review.md):
+ *  - Kinds of priority illegal harm: checked against OSA 2023 Schedules 5-7
+ *    on legislation.gov.uk (as amended, retrieved 25 November 2026).
+ *  - Risk factor links and measure rules: NOT yet checked against Ofcom's
+ *    Risk Assessment Guidance and Risk Profiles v2.0 (June 2026) or the
+ *    Illegal Content Codes of Practice (September 2026).
  * The mappings are a practical summary to guide users, not a copy of the
  * official documents. Check Ofcom's current publications before relying
  * on them.
@@ -57,13 +64,13 @@ window.OSRA_DATA = (function () {
       id: "iia",
       name: "Intimate image abuse",
       summary:
-        "Sharing, or threatening to share, intimate images or videos without consent, including deepfakes.",
+        "Sharing, or threatening to share, intimate images or videos without consent; creating or requesting fake (for example AI-generated) intimate images of adults; and sending unsolicited images of genitals (cyberflashing).",
     },
     {
       id: "extreme_porn",
       name: "Extreme pornography",
       summary:
-        "Extreme pornographic images, for example those depicting acts that threaten life or cause serious injury, necrophilia or bestiality.",
+        "Extreme pornographic images (for example acts that threaten life or cause serious injury, necrophilia or bestiality), and pornography showing strangulation or suffocation, sex between relatives, or sexual activity with a child under 16.",
     },
     {
       id: "sexual_exploitation",
@@ -111,7 +118,16 @@ window.OSRA_DATA = (function () {
       id: "suicide",
       name: "Encouraging or assisting suicide",
       summary:
-        "Content that encourages or assists suicide or an attempt at suicide, or serious self-harm.",
+        "Content that encourages or assists suicide or an attempt at suicide.",
+    },
+    {
+      // Priority offence since 8 January 2026 (OSA Sch. 7 para. 2A, added by
+      // S.I. 2025/1352). Risk factor links below copy those for suicide and are
+      // PROVISIONAL until checked against Ofcom's v2.0 Risk Profiles.
+      id: "self_harm",
+      name: "Encouraging or assisting serious self-harm",
+      summary:
+        "Content that encourages or assists someone to seriously harm themselves, for example by sharing methods or urging them to self-harm.",
     },
     {
       id: "foreign_interference",
@@ -129,7 +145,7 @@ window.OSRA_DATA = (function () {
       id: "other",
       name: "Other illegal content (non-priority offences)",
       summary:
-        "Other relevant offences that are not priority offences, for example cyberflashing, epilepsy trolling, false communications and encouraging serious self-harm. Assess any your service is aware of.",
+        "Other relevant offences that are not priority offences, for example epilepsy trolling (sending flashing images), false communications and threatening communications. Assess any your service is aware of.",
     },
   ];
 
@@ -143,15 +159,15 @@ window.OSRA_DATA = (function () {
       hint: "Tick every type that describes your service, even partly.",
       services: ["u2u"],
       factors: [
-        { id: "t_social", name: "Social media service", raises: ["terrorism", "grooming", "csam_image", "hate", "harassment", "coercive", "iia", "fraud", "drugs", "suicide", "foreign_interference", "animal_cruelty"] },
+        { id: "t_social", name: "Social media service", raises: ["terrorism", "grooming", "csam_image", "hate", "harassment", "coercive", "iia", "fraud", "drugs", "suicide", "self_harm", "foreign_interference", "animal_cruelty"] },
         { id: "t_messaging", name: "Messaging service", raises: ["terrorism", "grooming", "csam_image", "csam_url", "harassment", "coercive", "iia", "fraud", "drugs", "trafficking"] },
         { id: "t_gaming", name: "Gaming service", raises: ["terrorism", "grooming", "hate", "harassment", "fraud"] },
         { id: "t_adult", name: "Adult service (pornography or sexual content)", raises: ["csam_image", "csam_url", "iia", "extreme_porn", "sexual_exploitation", "trafficking"] },
-        { id: "t_forum", name: "Discussion forum or chat room", raises: ["terrorism", "csam_image", "csam_url", "hate", "harassment", "drugs", "suicide", "foreign_interference"] },
+        { id: "t_forum", name: "Discussion forum or chat room", raises: ["terrorism", "csam_image", "csam_url", "hate", "harassment", "drugs", "suicide", "self_harm", "foreign_interference"] },
         { id: "t_dating", name: "Dating service", raises: ["harassment", "iia", "fraud", "sexual_exploitation", "trafficking"] },
         { id: "t_marketplace", name: "Marketplace or listings service", raises: ["fraud", "proceeds", "drugs", "weapons", "trafficking", "immigration", "sexual_exploitation", "animal_cruelty"] },
         { id: "t_filesharing", name: "File-storage or file-sharing service", raises: ["terrorism", "csam_image", "csam_url", "iia", "extreme_porn"] },
-        { id: "t_video", name: "Video-sharing service", raises: ["terrorism", "csam_image", "hate", "suicide", "extreme_porn", "animal_cruelty", "iia"] },
+        { id: "t_video", name: "Video-sharing service", raises: ["terrorism", "csam_image", "hate", "suicide", "self_harm", "extreme_porn", "animal_cruelty", "iia"] },
       ],
     },
     {
@@ -162,7 +178,7 @@ window.OSRA_DATA = (function () {
       factors: [
         { id: "s_general", name: "General search service (searches the whole web)", raises: [ALL] },
         { id: "s_vertical", name: "Vertical search service (searches a specific sector, such as flights or financial products)", raises: ["fraud"] },
-        { id: "s_predictive", name: "Predictive search (autocomplete) suggestions", raises: ["csam_url", "suicide", "drugs", "fraud", "terrorism"] },
+        { id: "s_predictive", name: "Predictive search (autocomplete) suggestions", raises: ["csam_url", "suicide", "self_harm", "drugs", "fraud", "terrorism"] },
         { id: "s_image", name: "Image or reverse-image search", raises: ["csam_image", "iia", "extreme_porn"] },
       ],
     },
@@ -172,8 +188,8 @@ window.OSRA_DATA = (function () {
       hint: "Who uses your service.",
       services: ["u2u", "search"],
       factors: [
-        { id: "u_children", name: "Children (under 18) use the service, or are likely to", raises: ["grooming", "csam_image", "harassment", "suicide"] },
-        { id: "u_vulnerable", name: "Users who may be particularly vulnerable (for example people in crisis, recent migrants or people in financial difficulty)", raises: ["fraud", "suicide", "trafficking", "immigration", "sexual_exploitation", "coercive"] },
+        { id: "u_children", name: "Children (under 18) use the service, or are likely to", raises: ["grooming", "csam_image", "harassment", "suicide", "self_harm"] },
+        { id: "u_vulnerable", name: "Users who may be particularly vulnerable (for example people in crisis, recent migrants or people in financial difficulty)", raises: ["fraud", "suicide", "self_harm", "trafficking", "immigration", "sexual_exploitation", "coercive"] },
         { id: "u_large", name: "Large user base (lots of UK users, so content can reach many people)", raises: [ALL] },
       ],
     },
@@ -197,7 +213,7 @@ window.OSRA_DATA = (function () {
       factors: [
         { id: "f_connections", name: "Users can connect with, follow or friend each other", raises: ["grooming", "harassment", "coercive", "foreign_interference"] },
         { id: "f_suggestions", name: "The service suggests people to connect with (network expansion prompts)", raises: ["grooming", "harassment"] },
-        { id: "f_groups", name: "Users can form or join groups, channels or chat rooms", raises: ["terrorism", "csam_image", "csam_url", "hate", "drugs", "suicide", "fraud"] },
+        { id: "f_groups", name: "Users can form or join groups, channels or chat rooms", raises: ["terrorism", "csam_image", "csam_url", "hate", "drugs", "suicide", "self_harm", "fraud"] },
         { id: "f_location", name: "Users can share their location, or it can be inferred", raises: ["harassment", "coercive", "grooming", "trafficking"] },
       ],
     },
@@ -210,9 +226,9 @@ window.OSRA_DATA = (function () {
         { id: "f_dm", name: "Direct or private messaging between users", raises: ["grooming", "csam_image", "harassment", "coercive", "iia", "fraud", "drugs", "sexual_exploitation", "trafficking"] },
         { id: "f_encrypted", name: "End-to-end encrypted messaging", raises: ["grooming", "csam_image", "csam_url", "terrorism", "drugs", "fraud"] },
         { id: "f_ephemeral", name: "Disappearing or ephemeral messages or posts", raises: ["grooming", "iia", "harassment", "drugs"] },
-        { id: "f_livestream", name: "Livestreaming", raises: ["grooming", "csam_image", "terrorism", "suicide", "harassment", "animal_cruelty"] },
+        { id: "f_livestream", name: "Livestreaming", raises: ["grooming", "csam_image", "terrorism", "suicide", "self_harm", "harassment", "animal_cruelty"] },
         { id: "f_voice", name: "Voice or video calls", raises: ["grooming", "harassment", "coercive"] },
-        { id: "f_comments", name: "Commenting on, or reacting to, content", raises: ["grooming", "hate", "harassment", "suicide"] },
+        { id: "f_comments", name: "Commenting on, or reacting to, content", raises: ["grooming", "hate", "harassment", "suicide", "self_harm"] },
       ],
     },
     {
@@ -221,11 +237,11 @@ window.OSRA_DATA = (function () {
       hint: "What kind of content users can share, and how it spreads.",
       services: ["u2u"],
       factors: [
-        { id: "f_images", name: "Users can post or send images or videos", raises: ["csam_image", "iia", "extreme_porn", "terrorism", "hate", "animal_cruelty", "suicide"] },
+        { id: "f_images", name: "Users can post or send images or videos", raises: ["csam_image", "iia", "extreme_porn", "terrorism", "hate", "animal_cruelty", "suicide", "self_harm"] },
         { id: "f_links", name: "Users can post hyperlinks", raises: ["csam_url", "terrorism", "fraud", "drugs", "foreign_interference"] },
-        { id: "f_reposting", name: "Users can re-post or forward content", raises: ["terrorism", "hate", "iia", "foreign_interference", "suicide"] },
-        { id: "f_search", name: "Users can search for content or other users", raises: ["csam_image", "csam_url", "terrorism", "drugs", "suicide", "grooming"] },
-        { id: "f_recommender", name: "A recommender system or algorithmic feed decides what users see", raises: ["terrorism", "hate", "harassment", "suicide", "foreign_interference"] },
+        { id: "f_reposting", name: "Users can re-post or forward content", raises: ["terrorism", "hate", "iia", "foreign_interference", "suicide", "self_harm"] },
+        { id: "f_search", name: "Users can search for content or other users", raises: ["csam_image", "csam_url", "terrorism", "drugs", "suicide", "self_harm", "grooming"] },
+        { id: "f_recommender", name: "A recommender system or algorithmic feed decides what users see", raises: ["terrorism", "hate", "harassment", "suicide", "self_harm", "foreign_interference"] },
         { id: "f_genai", name: "Users can create content with generative AI tools on the service", raises: ["csam_image", "iia", "fraud", "foreign_interference", "extreme_porn"] },
         { id: "f_storage", name: "Users can store or share files or large collections of content", raises: ["csam_image", "terrorism", "extreme_porn", "iia"] },
       ],
@@ -322,7 +338,7 @@ window.OSRA_DATA = (function () {
     { id: "uc_verified", group: "User controls and default settings", services: ["u2u"], when: "largeAndHarm", harms: ["fraud", "foreign_interference"], name: "Policies for verified and notable user schemes", desc: "If the service labels some accounts as verified or notable, it has public policies on how this works and explains to users what the labels mean." },
 
     // Recommender systems
-    { id: "rec_testing", group: "Recommender systems", services: ["u2u"], when: "harm", harms: ["terrorism", "hate", "harassment", "suicide", "foreign_interference", "csam_image", "grooming"], name: "Collect safety metrics when testing recommender changes", desc: "When making changes to recommender systems, collect and analyse safety metrics to check whether the change increases exposure to illegal content." },
+    { id: "rec_testing", group: "Recommender systems", services: ["u2u"], when: "harm", harms: ["terrorism", "hate", "harassment", "suicide", "self_harm", "foreign_interference", "csam_image", "grooming"], name: "Collect safety metrics when testing recommender changes", desc: "When making changes to recommender systems, collect and analyse safety metrics to check whether the change increases exposure to illegal content." },
     { id: "rec_crisis", group: "Recommender systems", services: ["u2u"], when: "largeAndHarm", harms: ["terrorism", "hate", "foreign_interference"], name: "Crisis response protocol", desc: "A protocol for responding to crisis events (such as terrorist attacks or riots), including how recommendations and moderation will change." },
 
     // User access
@@ -331,12 +347,12 @@ window.OSRA_DATA = (function () {
 
     // Search-specific
     { id: "s_deindex", group: "Search services", services: ["search"], when: "all", name: "Deindex or downrank illegal content", desc: "Take appropriate moderation action, such as deindexing or downranking, on search content the service is aware is illegal." },
-    { id: "s_predictive", group: "Search services", services: ["search"], when: "largeOrHarm", harms: ["csam_url", "suicide", "drugs", "fraud"], name: "Let users report predictive search suggestions", desc: "Users can easily report predictive search suggestions that direct them to illegal content, and those suggestions are reviewed and removed." },
+    { id: "s_predictive", group: "Search services", services: ["search"], when: "largeOrHarm", harms: ["csam_url", "suicide", "self_harm", "drugs", "fraud"], name: "Let users report predictive search suggestions", desc: "Users can easily report predictive search suggestions that direct them to illegal content, and those suggestions are reviewed and removed." },
     { id: "s_csam_warnings", group: "Search services", services: ["search"], when: "largeOrHarm", harms: ["csam_image", "csam_url"], name: "CSAM warnings and removal of CSAM URLs", desc: "Show warnings, with information about support, to users searching for CSAM, and remove known CSAM URLs from search results." },
     { id: "s_image_hash", group: "Search services", services: ["search"], when: "largeOrHarm", harms: ["csam_image"], name: "Hash matching for image search results", desc: "Use hash matching to detect and remove known CSAM from image search results." },
 
     // Support
-    { id: "sup_suicide", group: "Support for users", services: ["u2u", "search"], when: "harm", harms: ["suicide"], name: "Signpost crisis support", desc: "Show crisis prevention information and support (such as helplines) to users who search for, or engage with, content about suicide." },
+    { id: "sup_suicide", group: "Support for users", services: ["u2u", "search"], when: "harm", harms: ["suicide", "self_harm"], name: "Signpost crisis support", desc: "Show crisis prevention information and support (such as helplines) to users who search for, or engage with, content about suicide." },
   ];
 
   const statuses = [

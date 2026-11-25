@@ -327,7 +327,7 @@
           <p class="eyebrow">Online Safety Act 2023</p>
           <h1>Complete your illegal content risk assessment</h1>
           <p class="lede">A step-by-step guide for user-to-user and search services. It follows Ofcom's four-step method,
-          helps you assess all 17 kinds of priority illegal harm, and produces a written record you can keep, share and review.</p>
+          helps you assess every kind of priority illegal harm, and produces a written record you can keep, share and review.</p>
           <div class="actions">
             <button class="btn btn-large" data-action="new">Start a new assessment</button>
             <button class="btn btn-secondary" data-action="example">Try a worked example</button>
